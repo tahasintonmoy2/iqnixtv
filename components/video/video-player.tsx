@@ -2,7 +2,7 @@
 
 import "@mux/mux-player-react/themes/classic";
 import { Crown } from "lucide-react";
-import Player from "next-video";
+// import Player from "next-video";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -180,6 +180,20 @@ export const VideoPlayer = ({
             )}
             onCanPlay={() => setIsReady(true)}
             onEnded={onEnd}
+            onTimeUpdate={(currentTime, duration) => {
+              // Handle progress updates
+              debouncedUpdateProgress(currentTime, duration);
+
+              // Handle next episode indicator
+              const timeLeft = duration - currentTime;
+              if (timeLeft <= 20 && nextEpisodeId) {
+                if (!showNextEpisodeIndicator) {
+                  setShowNextEpisodeIndicator(true);
+                }
+                setRemainingSeconds(Math.max(0, Math.floor(timeLeft)));
+              }
+            }}
+            hasNextEpisode={!!nextEpisodeId}
           />
           {/* <Player
             ref={playerRef}

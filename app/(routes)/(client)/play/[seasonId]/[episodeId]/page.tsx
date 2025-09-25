@@ -15,12 +15,6 @@ export async function generateMetadata({
 }) {
   const { episodeId, seasonId } = await params;
 
-  const series = await db.series.findFirst({
-    where: {
-      isPublished: true,
-    },
-  });
-
   const episode = await db.episode.findUnique({
     where: {
       id: episodeId,
@@ -31,16 +25,19 @@ export async function generateMetadata({
     where: {
       id: seasonId,
     },
+    include: {
+      series: true,
+    },
   });
 
-  if (!episode?.id || !season?.id || !season?.id) {
+  if (!episode?.id || !season?.id) {
     return {
       title: "Iqnix TV",
     };
   }
 
   return {
-    title: `Watch ${series?.name} - S${season.seasonNumber} - Ep ${episode.episodeNumber}`,
+    title: `Watch ${season.series.name} - S${season.seasonNumber} - Ep ${episode.episodeNumber}`,
   };
 }
 
@@ -54,10 +51,9 @@ export default async function WatchPage({
 }) {
   const { seasonId, episodeId } = await params;
 
-  const { nextEpisode, muxData } = await getEpisode({ seasonId, episodeId });
-
-  const episode = await db.episode.findMany({
+  const episodes = await db.episode.findMany({
     where: {
+      seasonId,
       isPublished: true,
     },
     include: {
@@ -65,7 +61,7 @@ export default async function WatchPage({
         include: {
           replies: true,
           user: true,
-          likes: true
+          likes: true,
         },
         orderBy: {
           createdAt: "desc",
@@ -77,37 +73,31 @@ export default async function WatchPage({
     },
   });
 
-  const seasons = await db.season.findMany({
+  const seasons = await db.season.findUnique({
     where: {
+      id: seasonId,
       isPublished: true,
     },
     include: {
-      episodes: {
-        where: {
-          isPublished: true
-        }
-      }
-    },
-    orderBy: {
-      seasonNumber: "asc",
+      episodes: true,
+      series: {
+        include: {
+          genre: true,
+          ageRating: true,
+        },
+      },
     },
   });
 
-  const series = await db.series.findMany({
-    where: {
-      isPublished: true,
-    },
-    include: {
-      genre: true,
-      ageRating: true,
-    },
-    orderBy: {
-      name: "desc",
-    },
+  const series = seasons?.series;
+
+  const { muxData, nextEpisode, userProgress, episode } = await getEpisode({
+    episodeId,
+    seasonId,
   });
 
   // Resolve genre names from the stored genreId (which may contain comma-separated IDs)
-  const selectedGenreIds = (series?.[0]?.genreId ?? "")
+  const selectedGenreIds = (series?.genreId ?? "")
     .split(",")
     .map((val) => val.trim())
     .filter(Boolean);
@@ -121,36 +111,39 @@ export default async function WatchPage({
 
   const genreNames = genreRecords.map((g) => g.name);
 
-  if (!muxData?.playbackId) {
-    throw new Error("PlaybackId not found");
-  }
+  const isLocked = !episode?.isFree;
+  const completeOnEnd = !userProgress?.isCompleted;
 
   return (
     <ErrorBoundary>
-      <div className="container mx-auto px-4 py-4">
+      <div className="mx-auto px-4 py-4">
         <div className="grid lg:grid-cols-2 sm:grid-cols-1 md:grid-cols-2 mt-16">
           <div className="relative lg:w-[900px] w-full">
             <VideoPlayer
-              playbackId={muxData?.playbackId}
+              playbackId={muxData?.playbackId || ""}
               seasonId={seasonId}
+              seriesId={series?.id ?? ""}
               episodeId={episodeId}
-              isLocked={false}
-              nextEpisodeId={nextEpisode?.id}
-              completeOnEnd={false}
+              isLocked={isLocked}
+              nextEpisodeId={nextEpisode?.id ?? ""}
+              completeOnEnd={completeOnEnd}
             />
           </div>
           <EpisodeInfo
-            season={seasons}
-            episode={episode}
+            season={seasons ? [seasons] : []}
+            episode={episodes}
             episodeId={episodeId}
           />
           <EpisodeBottomInfo
-            episode={episode[0]}
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            //@ts-expect-error
+            episodes={episodes}
             season={seasons}
-            series={series}
-            contentAgeRating={series[0].ageRating?.name ?? "Not Rated"}
+            series={series ? [series] : []}
+            contentAgeRating={series?.ageRating?.name ?? "Not Rated"}
             contentGenre={genreNames}
-            lengthOfEpisode={episode.length}
+            lengthOfEpisode={episodes.length}
+            currentEpisodeId={episodeId}
           />
         </div>
       </div>

@@ -1,79 +1,107 @@
 "use client";
 
-import { Edit, Plus } from "lucide-react";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
-import { AddEpisodeDialog } from "@/components/add-episode-dialog";
-import { AddSeasonDialog } from "@/components/add-season-dialog";
-import { ContentList } from "@/components/content-list";
-import { DashboardShell } from "@/components/dashboard-shell";
-import { EditSeasonDialog } from "@/components/edit-season-dialog"; // Import the new component
-import { SeasonSelector } from "@/components/season-selector";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { useEpisode } from "@/hooks/use-episode";
-import { Episode, Season } from "@/lib/generated/prisma";
+import { EpisodeSlider } from "@/components/episode-slider";
+import { SeasonSelectorClient } from "@/components/season-selector-client";
+import { Episode, Season, Series } from "@/lib/generated/prisma";
 
 interface SeasonProps {
   seasons: Season[];
-  episodes: Episode[];
-  episodeId: string;
+  episodes: (Episode & {
+    thumbnailUrl?: string;
+    duration?: number;
+    seasonId: string;
+  })[];
+  series: Series & {
+    seasons: Season[];
+    episodes: (Episode & {
+      thumbnailUrl?: string;
+      duration?: number;
+      seasonId: string;
+    })[];
+  };
 }
 
-export const SelectSeason = ({ seasons, episodes, episodeId }: SeasonProps) => {
-  const [selectedSeason, setSelectedSeason] = useState<string>(
-    seasons[0]?.id || ""
-  );
-  const [isEditSeasonOpen, setIsEditSeasonOpen] = useState(false);
-  const episode = useEpisode();
+export const SelectSeason = ({ seasons, episodes, series }: SeasonProps) => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const seasonId = searchParams.get("seasonId");
 
-  const seasonToEdit = seasons.find((season) => season.id === selectedSeason);
+  // Debug logging
+  console.log("SelectSeason received data:", {
+    seasons: seasons,
+    episodes: episodes,
+    series: series,
+    seasonId: seasonId
+  });
+
+  // Use the first season as default if no season is selected
+  const selectedSeason = seasonId || seasons[0]?.id || "";
+
+  // Filter episodes by current season
+  const filteredEpisodes = episodes.filter(
+    (episode) => episode.seasonId === selectedSeason
+  );
+
+  console.log("Filtered episodes:", {
+    selectedSeason,
+    filteredEpisodes,
+    totalEpisodes: episodes.length
+  });
+
+  const handleSeasonChange = (newSeasonId: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set("seasonId", newSeasonId);
+    router.push(`?${params.toString()}`);
+  };
+
+  // If no seasons exist, don't render anything
+  if (seasons.length === 0) {
+    console.log("No seasons found");
+    return (
+      <div className="mt-8">
+        <div className="text-center py-8">
+          <h2 className="text-2xl font-bold mb-4">Episodes</h2>
+          <p className="text-muted-foreground">
+            No seasons available for this series.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <DashboardShell>
-      <Card>
-        <CardContent>
-          <div className="flex items-center space-x-4">
-            <SeasonSelector
+    <div>
+      <div className="mt-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold">Episodes</h2>
+          {seasons.length > 0 && (
+            <SeasonSelectorClient
               seasons={seasons}
               selectedSeason={selectedSeason}
-              onSelectSeason={setSelectedSeason}
+              onSelectSeason={handleSeasonChange}
+              seriesId={series.id}
             />
-            <Button
-              variant="outline"
-              onClick={() => setIsEditSeasonOpen(true)} // Open edit dialog
-              disabled={!selectedSeason} // Disable if no season is selected
-            >
-              <Edit className="mr-2 h-4 w-4" />
-              Edit Season
-            </Button>
-            <Button onClick={episode.onOpen}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Episode
-            </Button>
+          )}
+        </div>
+        {filteredEpisodes.length > 0 ? (
+          <EpisodeSlider
+            series={{
+              ...series,
+              episodes: filteredEpisodes,
+            }}
+          />
+        ) : (
+          <div className="text-center py-8">
+            <h3 className="text-lg font-medium mb-2">No Episodes Found</h3>
+            <p className="text-muted-foreground">
+              No episodes found for this season. Please select a different
+              season to view episodes.
+            </p>
           </div>
-          <Separator className="my-4" />
-          <ScrollArea className="h-[32rem]">
-            <ContentList
-              seasonId={selectedSeason}
-              episodeId={episodeId}
-              episodes={episodes}
-            />
-          </ScrollArea>
-        </CardContent>
-      </Card>
-
-      <AddSeasonDialog />
-      {seasonToEdit && ( // Only render if a season is selected for editing
-        <EditSeasonDialog
-          initialData={seasonToEdit}
-          open={isEditSeasonOpen}
-          onOpenChange={setIsEditSeasonOpen}
-        />
-      )}
-      <AddEpisodeDialog seasonId={selectedSeason} />
-    </DashboardShell>
+        )}
+      </div>
+    </div>
   );
 };

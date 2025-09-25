@@ -2,21 +2,19 @@ import { DashboardHeader } from "@/components/dashboard-header";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from "@/lib/db";
-import { SeriesBannerStatus } from "@/lib/generated/prisma";
 import { BannerAnalytics } from "../series/_components/banner-analytics";
 import { BannersList } from "../series/_components/banners-list";
 
 export default async function BannersPage() {
-
   const banners = await db.seriesBanner.findMany({
-    where: {
-      status: SeriesBannerStatus.ACTIVE
+    orderBy: {
+      createdAt: "desc",
     },
     include: {
       series: true,
-      genre: true
-    }
-  })
+      genre: true,
+    },
+  });
 
   return (
     <DashboardShell>
@@ -33,10 +31,15 @@ export default async function BannersPage() {
 
         <TabsContent value="banners" className="space-y-4">
           <BannersList
-            banners={banners.map(banner => ({
+            banners={banners.map((banner) => ({
               ...banner,
-              categories: banner.genre ? [banner.genre] : [],
-              series: [banner.series].filter(Boolean),
+              series: banner.series ? [banner.series] : [],
+              genre: banner.genre ? [banner.genre] : [],
+              analytics: {
+                impressions: 0,
+                ctr: 0,
+                clicks: 0,
+              },
             }))}
           />
         </TabsContent>

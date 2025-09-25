@@ -8,7 +8,7 @@ import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { ImageIcon, PencilIcon, PlusCircle } from "lucide-react";
+import { ImageIcon, PencilIcon, Plus } from "lucide-react";
 import { MdClose } from "react-icons/md";
 import { getError } from "@/lib/get-error-message";
 import { Series } from "@/lib/generated/prisma";
@@ -18,10 +18,8 @@ interface ImageFormPops {
   initialData: Series;
 }
 
-const formSchema = z.object({
-  thumbnailImageUrl: z.string().min(10, {
-    message: "Image URL is required and must be at least 10 characters",
-  }),
+export const formSchema = z.object({
+  thumbnailImageUrl: z.string(),
 });
 
 export const SeriesImageForm = ({
@@ -44,25 +42,25 @@ export const SeriesImageForm = ({
   };
 
   return (
-    <div className="mt-6 border rounded-md p-4">
+    <div className="mt-6 border rounded-md p-4 w-80">
       <div className="font-medium flex items-center justify-between">
-        Series Image
-        <Button variant="ghost" onClick={toggleEdit}>
+        Thumbnail image
+        <Button variant="ghost" onClick={toggleEdit} className="mb-4">
           {isEditing && (
             <>
-              <MdClose className="h-5 w-5 mr-2" />
+              <MdClose className="h-5 w-5" />
               Cancel
             </>
           )}
           {!isEditing && !initialData.thumbnailImageUrl && (
             <>
-              <PlusCircle className="h-4 w-4 mr-2" />
+              <Plus className="h-4 w-4" />
               Add an Image
             </>
           )}
           {!isEditing && initialData.thumbnailImageUrl && (
             <>
-              <PencilIcon className="h-4 w-4 mr-2" />
+              <PencilIcon className="h-4 w-4" />
               Change Image
             </>
           )}
@@ -70,8 +68,8 @@ export const SeriesImageForm = ({
       </div>
       {!isEditing &&
         (!initialData.thumbnailImageUrl ? (
-          <div className="flex justify-center items-center h-60 bg-slate-200 rounded-md">
-            <ImageIcon className="h-10 w-10 text-slate-700" />
+          <div className="flex justify-center items-center h-60 bg-muted rounded-md">
+            <ImageIcon className="size-10" />
           </div>
         ) : (
           <div className="relative aspect-video mt-2">
@@ -85,14 +83,16 @@ export const SeriesImageForm = ({
         ))}
       {isEditing && (
         <div>
-          <FileUpload
-            endPoint="videoImage"
-            onChange={(url) => {
-              if (url) {
-                onSubmit({ thumbnailImageUrl: url });
-              }
-            }}
-          />
+          <div className="border border-dashed rounded-md">
+            <FileUpload
+              endPoint="videoImage"
+              onChange={(url) => {
+                if (url) {
+                  onSubmit({ thumbnailImageUrl: url });
+                }
+              }}
+            />
+          </div>
           <div className="text-xs text-muted-foreground mt-4">
             <p>16:9 aspect ratio recommended</p>
           </div>

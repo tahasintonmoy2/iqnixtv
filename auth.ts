@@ -52,12 +52,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           where: {
             userId: session.user.id,
             status: {
-              in: ["active", "trialing"]
+              in: ["active", "trialing"],
             },
           },
           orderBy: {
-            currentPeriodEnd: "desc"
-          }
+            currentPeriodEnd: "desc",
+          },
         });
 
         session.user.subscription = subscription as Subscription;
@@ -87,6 +87,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
   adapter: PrismaAdapter(db),
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+    maxAge: 365 * 24 * 60 * 60, // 1 year
+    updateAge: 365 * 24 * 60 * 60, // 1 year
+  },
   ...authConfig,
 });

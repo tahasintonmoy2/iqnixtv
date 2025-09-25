@@ -25,19 +25,21 @@ interface DescriptionFormPops {
 }
 
 const formSchema = z.object({
-  description: z.string().min(10, {
+  castDescription: z.string().min(10, {
     message: "Description is required",
   }),
 });
 
-export const SeriesDescriptionForm = ({ initialData }: DescriptionFormPops) => {
+export const SeriesCastDescriptionForm = ({
+  initialData,
+}: DescriptionFormPops) => {
   const [isEditing, setIsEditing] = useState(false);
   const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      description: initialData.description || "",
+      castDescription: initialData.castDescription || "",
     },
   });
 
@@ -59,7 +61,7 @@ export const SeriesDescriptionForm = ({ initialData }: DescriptionFormPops) => {
   return (
     <div className="mt-6 border bg-card rounded-md p-4">
       <div className="font-medium flex items-center justify-between">
-        Description
+        Cast & Crew
         <Button variant="ghost" type="button" onClick={toggleEdit}>
           {isEditing ? (
             <>
@@ -73,8 +75,10 @@ export const SeriesDescriptionForm = ({ initialData }: DescriptionFormPops) => {
           )}
         </Button>
       </div>
-      {!isEditing && <p className="mt-2">{initialData.description}</p>}
-      {!isEditing && !initialData.description && (
+      {!isEditing && initialData.castDescription && (
+        <p className="mt-2">{initialData.castDescription}</p>
+      )}
+      {!isEditing && !initialData.castDescription && (
         <p className="mt-2 text-muted-foreground text-sm">No description set</p>
       )}
       {isEditing && (
@@ -85,14 +89,14 @@ export const SeriesDescriptionForm = ({ initialData }: DescriptionFormPops) => {
           >
             <FormField
               control={form.control}
-              name="description"
+              name="castDescription"
               render={({ field }) => {
                 return (
                   <FormItem>
                     <FormControl>
                       <Textarea
                         disabled={isSubmitting}
-                        placeholder="Enter description"
+                        placeholder="Enter cast description"
                         {...field}
                       />
                     </FormControl>

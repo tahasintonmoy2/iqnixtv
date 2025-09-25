@@ -15,14 +15,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { getError } from "@/lib/get-error-message";
 import { PencilIcon, X } from "lucide-react";
 import { toast } from "sonner";
-import { Series } from "@/lib/generated/prisma";
+import {SeriesBanner} from "@/lib/generated/prisma";
 
 interface TitleFormPops {
-  initialData: Series,
-  contentId: string
+  initialData: SeriesBanner,
+  bannerId: string
 }
 
 const formSchema = z.object({
@@ -31,7 +30,7 @@ const formSchema = z.object({
   }),
 });
 
-export const SeriesTitleForm = ({ initialData, contentId }: TitleFormPops) => {
+export const SeriesBannerTitleForm = ({ initialData, bannerId }: TitleFormPops) => {
   const [isEditing, setIsEditing] = useState(false);
   const router = useRouter();
 
@@ -48,12 +47,13 @@ export const SeriesTitleForm = ({ initialData, contentId }: TitleFormPops) => {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      await axios.patch(`/api/series/${contentId}`, values);
+      await axios.patch(`/api/series/banner/${bannerId}`, values);
       toast.success("Series title updated!");
       toggleEdit();
       router.refresh();
     } catch (error) {
-      toast.error(getError(error));
+        console.log(error);
+      toast.error("Failed to update title!");
     }
   };
 
