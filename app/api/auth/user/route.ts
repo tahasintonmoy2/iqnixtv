@@ -6,7 +6,6 @@ const JWT_SECRET = process.env.AUTH_SECRET!;
 
 export async function GET(req: Request) {
   try {
-    
     const authHeader = req.headers.get("authorization");
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -30,14 +29,17 @@ export async function GET(req: Request) {
     try {
       decodedToken = jwt.verify(token, JWT_SECRET);
     } catch (err) {
-        console.log(err);
+      console.log(err);
       return NextResponse.json(
         { error: "Invalid or expired token" },
         { status: 401 }
       );
     }
 
-    const userId = typeof decodedToken === "object" && "id" in decodedToken ? decodedToken.id : null;
+    const userId =
+      typeof decodedToken === "object" && "id" in decodedToken
+        ? decodedToken.id
+        : null;
 
     if (!userId) {
       return NextResponse.json(
@@ -64,20 +66,10 @@ export async function GET(req: Request) {
 
     return new NextResponse(JSON.stringify(user), {
       status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "http://localhost:3001", // Consider using env var for flexibility
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Credentials": "true",
-        "Cache-Control": "no-store",
-      },
     });
   } catch (error) {
     console.error("Error fetching user:", error);
 
-    return NextResponse.json("Internal server error",
-      { status: 500 }
-    );
+    return NextResponse.json("Internal server error", { status: 500 });
   }
 }

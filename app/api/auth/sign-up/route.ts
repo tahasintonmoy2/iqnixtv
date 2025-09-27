@@ -2,22 +2,7 @@ import { db } from "@/lib/db";
 import { sendVerificationEmail } from "@/lib/resend-mail";
 import { generateVerificationToken } from "@/lib/tokens";
 import bcrypt from "bcryptjs";
-import { NextRequest, NextResponse } from "next/server";
-
-const allowedOrigin = "http://localhost:3001";
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function OPTIONS(req: NextRequest) {
-  return new NextResponse(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": allowedOrigin,
-      "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      "Access-Control-Allow-Credentials": "true",
-    },
-  });
-}
+import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
@@ -54,13 +39,12 @@ export async function POST(req: Request) {
       verificationToken.token
     );
 
-    return NextResponse.json({ success: "Sign up successful" }), {
-      status: 200,
-      headers: {
-        "Access-Control-Allow-Origin": allowedOrigin,
-        "Access-Control-Allow-Credentials": "true",
-      },
-    };
+    return (
+      NextResponse.json({ success: "Sign up successful" }),
+      {
+        status: 200,
+      }
+    );
   } catch (error) {
     console.error("Error creating category:", error);
     return NextResponse.json(

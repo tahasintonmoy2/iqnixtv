@@ -10,22 +10,7 @@ import {
 } from "@/lib/tokens";
 import { LoginSchema } from "@/schemas";
 import bcrypt from "bcryptjs";
-import { NextRequest, NextResponse } from "next/server";
-
-const allowedOrigin = "http://localhost:3001";
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function OPTIONS(req: NextRequest) {
-  return new NextResponse(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": allowedOrigin,
-      "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      "Access-Control-Allow-Credentials": "true",
-    },
-  });
-}
+import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
@@ -36,37 +21,29 @@ export async function POST(req: Request) {
       console.log("Schema validation failed:", validatedFields.error);
       return NextResponse.json(
         { error: "Invalid credentials", details: validatedFields.error },
-        { 
+        {
           status: 400,
-          headers: {
-            "Access-Control-Allow-Origin": allowedOrigin,
-            "Access-Control-Allow-Credentials": "true",
-          },
         }
       );
     }
 
     const { email, password, code } = validatedFields.data;
     console.log("Attempting login for email:", email);
-    
+
     const existingUser = await getUserByEmail(email);
 
     if (!existingUser || !existingUser.email || !existingUser.password) {
       console.log("User not found or missing required fields");
       return NextResponse.json(
         { error: "Email does not exist" },
-        { 
+        {
           status: 400,
-          headers: {
-            "Access-Control-Allow-Origin": allowedOrigin,
-            "Access-Control-Allow-Credentials": "true",
-          },
         }
       );
     }
 
     console.log("User found, emailVerified:", existingUser.emailVerified);
-    
+
     if (!existingUser.emailVerified) {
       console.log("Email not verified, code provided:", !!code);
       if (code) {
@@ -75,12 +52,8 @@ export async function POST(req: Request) {
         if (!existingToken) {
           return NextResponse.json(
             { error: "Invalid verification code" },
-            { 
+            {
               status: 400,
-              headers: {
-                "Access-Control-Allow-Origin": allowedOrigin,
-                "Access-Control-Allow-Credentials": "true",
-              },
             }
           );
         }
@@ -88,12 +61,8 @@ export async function POST(req: Request) {
         if (existingToken.email !== existingUser.email) {
           return NextResponse.json(
             { error: "Invalid verification code" },
-            { 
+            {
               status: 400,
-              headers: {
-                "Access-Control-Allow-Origin": allowedOrigin,
-                "Access-Control-Allow-Credentials": "true",
-              },
             }
           );
         }
@@ -103,12 +72,8 @@ export async function POST(req: Request) {
         if (hasExpires) {
           return NextResponse.json(
             { error: "Verification code has expired" },
-            { 
+            {
               status: 400,
-              headers: {
-                "Access-Control-Allow-Origin": allowedOrigin,
-                "Access-Control-Allow-Credentials": "true",
-              },
             }
           );
         }
@@ -126,17 +91,16 @@ export async function POST(req: Request) {
           where: { id: existingToken.id },
         });
 
-        const passwordsMatch = await bcrypt.compare(password, existingUser.password);
-        
+        const passwordsMatch = await bcrypt.compare(
+          password,
+          existingUser.password
+        );
+
         if (!passwordsMatch) {
           return NextResponse.json(
             { error: "Invalid credentials" },
-            { 
+            {
               status: 400,
-              headers: {
-                "Access-Control-Allow-Origin": allowedOrigin,
-                "Access-Control-Allow-Credentials": "true",
-              },
             }
           );
         }
@@ -145,10 +109,6 @@ export async function POST(req: Request) {
           { success: "Login successful" },
           {
             status: 200,
-            headers: {
-              "Access-Control-Allow-Origin": allowedOrigin,
-              "Access-Control-Allow-Credentials": "true",
-            },
           }
         );
       } else {
@@ -164,17 +124,13 @@ export async function POST(req: Request) {
           { success: "Confirmation email sent" },
           {
             status: 200,
-            headers: {
-              "Access-Control-Allow-Origin": allowedOrigin,
-              "Access-Control-Allow-Credentials": "true",
-            },
           }
         );
       }
     }
 
     console.log("Two-factor enabled:", existingUser.isTwoFactorEnabled);
-    
+
     if (existingUser.isTwoFactorEnabled && existingUser.email) {
       console.log("Two-factor flow, code provided:", !!code);
       if (code) {
@@ -184,13 +140,9 @@ export async function POST(req: Request) {
 
         if (!twoFactorToken) {
           return NextResponse.json(
-            { error: "Invalid code" }, 
-            { 
+            { error: "Invalid code" },
+            {
               status: 400,
-              headers: {
-                "Access-Control-Allow-Origin": allowedOrigin,
-                "Access-Control-Allow-Credentials": "true",
-              },
             }
           );
         }
@@ -198,12 +150,8 @@ export async function POST(req: Request) {
         if (twoFactorToken.token !== code) {
           return NextResponse.json(
             { error: "Two factor code is invalid" },
-            { 
+            {
               status: 400,
-              headers: {
-                "Access-Control-Allow-Origin": allowedOrigin,
-                "Access-Control-Allow-Credentials": "true",
-              },
             }
           );
         }
@@ -213,12 +161,8 @@ export async function POST(req: Request) {
         if (hasExpired) {
           return NextResponse.json(
             { error: "Two factor code is expired" },
-            { 
+            {
               status: 400,
-              headers: {
-                "Access-Control-Allow-Origin": allowedOrigin,
-                "Access-Control-Allow-Credentials": "true",
-              },
             }
           );
         }
@@ -243,17 +187,16 @@ export async function POST(req: Request) {
           },
         });
 
-        const passwordsMatch = await bcrypt.compare(password, existingUser.password);
-        
+        const passwordsMatch = await bcrypt.compare(
+          password,
+          existingUser.password
+        );
+
         if (!passwordsMatch) {
           return NextResponse.json(
             { error: "Invalid credentials" },
-            { 
+            {
               status: 400,
-              headers: {
-                "Access-Control-Allow-Origin": allowedOrigin,
-                "Access-Control-Allow-Credentials": "true",
-              },
             }
           );
         }
@@ -262,10 +205,6 @@ export async function POST(req: Request) {
           { success: "Login successful" },
           {
             status: 200,
-            headers: {
-              "Access-Control-Allow-Origin": allowedOrigin,
-              "Access-Control-Allow-Credentials": "true",
-            },
           }
         );
       } else {
@@ -274,30 +213,24 @@ export async function POST(req: Request) {
       }
 
       return NextResponse.json(
-        { twoFactor: true }, 
-        { 
+        { twoFactor: true },
+        {
           status: 200,
-          headers: {
-            "Access-Control-Allow-Origin": allowedOrigin,
-            "Access-Control-Allow-Credentials": "true",
-          },
         }
       );
     }
 
-    console.log("Standard login flow - checking password");
-    const passwordsMatch = await bcrypt.compare(password, existingUser.password);
-    
+    const passwordsMatch = await bcrypt.compare(
+      password,
+      existingUser.password
+    );
+
     if (!passwordsMatch) {
       console.log("Password mismatch");
       return NextResponse.json(
         { error: "Invalid credentials" },
-        { 
+        {
           status: 400,
-          headers: {
-            "Access-Control-Allow-Origin": allowedOrigin,
-            "Access-Control-Allow-Credentials": "true",
-          },
         }
       );
     }
@@ -306,22 +239,14 @@ export async function POST(req: Request) {
       { success: "Login successful" },
       {
         status: 200,
-        headers: {
-          "Access-Control-Allow-Origin": allowedOrigin,
-          "Access-Control-Allow-Credentials": "true",
-        },
       }
     );
   } catch (error) {
     console.log(error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { 
+      {
         status: 500,
-        headers: {
-          "Access-Control-Allow-Origin": allowedOrigin,
-          "Access-Control-Allow-Credentials": "true",
-        },
       }
     );
   }
