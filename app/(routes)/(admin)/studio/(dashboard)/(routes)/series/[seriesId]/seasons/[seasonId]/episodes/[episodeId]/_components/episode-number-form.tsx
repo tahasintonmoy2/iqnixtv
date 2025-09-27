@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Episode } from "@/lib/generated/prisma";
-import { getError } from "@/lib/get-error-message";
 import { cn } from "@/lib/utils";
 import { PencilIcon, X } from "lucide-react";
 import { toast } from "sonner";
@@ -25,22 +24,24 @@ interface PriceFormPops {
   initialData: Episode;
   seasonId: string;
   episodeId: string;
-  seriesId: string
+  seriesId: string;
 }
 
 const formSchema = z.object({
-  episodeNumber: z.number(),
+  episodeNumber: z.coerce.number(),
 });
 
 export const EpisodeNumberForm = ({
   initialData,
   seasonId,
   episodeId,
-  seriesId
+  seriesId,
 }: PriceFormPops) => {
   const [isEditing, setIsEditing] = useState(false);
   const router = useRouter();
+
   const form = useForm<z.infer<typeof formSchema>>({
+    //@ts-expect-error - zodResolver type incompatibility with form configuration
     resolver: zodResolver(formSchema),
     defaultValues: {
       episodeNumber: initialData?.episodeNumber || 1,
@@ -61,7 +62,8 @@ export const EpisodeNumberForm = ({
       toggleEdit();
       router.refresh();
     } catch (error) {
-      toast.error(getError(error));
+      console.log(error);
+      toast.error("Failed to update episode number");
     }
   };
 
@@ -97,10 +99,14 @@ export const EpisodeNumberForm = ({
       {isEditing && (
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(onSubmit)}
+            onSubmit={
+              //@ts-expect-error - React Hook Form control type incompatibility with FormField
+              form.handleSubmit(onSubmit)
+            }
             className="space-y-4 mt-4"
           >
             <FormField
+              //@ts-expect-error - React Hook Form control type incompatibility with FormField
               control={form.control}
               name="episodeNumber"
               render={({ field }) => {

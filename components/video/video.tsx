@@ -3,6 +3,7 @@
 import { Slider } from "@/components/ui/slider";
 import { useMobile } from "@/hooks/use-mobile";
 import { useVideoSettingsModal } from "@/hooks/use-video-settings-modal";
+import { Episode } from "@/lib/generated/prisma";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
@@ -28,9 +29,12 @@ import {
 import Image from "next/image";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MdOutlineRecordVoiceOver } from "react-icons/md";
 import shaka from "shaka-player/dist/shaka-player.compiled.js";
 import { useEventListener } from "usehooks-ts";
+import { PauseIcon } from "../icons";
 import { VideoSettingsModal } from "../models/video-settings-modal";
+import { Button } from "../ui/button";
 
 // Video playlist type
 interface VideoProps {
@@ -39,10 +43,13 @@ interface VideoProps {
   thumbnail: string;
   className: string;
   onCanPlay: () => void;
+  onLoadStart: () => void;
   description?: string;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
   onEnded?: () => void;
   initialSeek?: number;
+  episodes: Episode[];
+  episodeId: string;
   hasNextEpisode?: boolean;
 }
 
@@ -51,10 +58,13 @@ export const Video = ({
   thumbnail,
   title,
   className,
+  episodes,
+  episodeId,
+  hasNextEpisode = false,
   onCanPlay,
+  onLoadStart,
   onTimeUpdate,
   initialSeek,
-  hasNextEpisode = false,
 }: VideoProps) => {
   type ShakaErrorEvent = { detail?: { code?: number } };
   // Video state
@@ -68,7 +78,7 @@ export const Video = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isHover, setIsHover] = useState(false);
   const [isContentVisible, setIsContentVisible] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isControlsInteraction, setIsControlsInteraction] = useState(false);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [isAdjustingVolume, setIsAdjustingVolume] = useState(false);
@@ -76,10 +86,23 @@ export const Video = ({
   const [isPictureInPicture, setIsPictureInPicture] = useState(false);
   const [pipSupported, setPipSupported] = useState(false);
 
-  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [showPlaylist, setShowPlaylist] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [shuffleMode, setShuffleMode] = useState(false);
+  const [showEpisodePanel, setShowEpisodePanel] = useState(false);
+  
+
+
+  // Compute next/previous availability
+  const canGoNext = useMemo(() => {
+    if (!episodes || !episodeId) return false;
+    const currentIndex = episodes.findIndex(ep => ep.id === episodeId);
+    return currentIndex < episodes.length - 1;
+  }, [episodes, episodeId]);
+
+  const canGoPrevious = useMemo(() => {
+    if (!episodes || !episodeId) return false;
+    const currentIndex = episodes.findIndex(ep => ep.id === episodeId);
+    return currentIndex > 0;
+  }, [episodes, episodeId]);
 
   // Thumbnail preview state
   const [thumbnails, setThumbnails] = useState<
@@ -92,13 +115,11 @@ export const Video = ({
   // Settings state
   const [showSettings, setShowSettings] = useState(false);
   const [settingsView, setSettingsView] = useState<
-    "main" | "quality" | "speed" | "subtitles" | "sleep"
+    "main" | "quality" | "speed" | "subtitles" | "audio"
   >("main");
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [ambientMode, setAmbientMode] = useState(false);
   const [subtitles, setSubtitles] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isLandscape, setIsLandscape] = useState(false);
-  const [sleepTimer, setSleepTimer] = useState<string | null>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const isMobile = useMobile();
   const { onOpen } = useVideoSettingsModal();
@@ -107,6 +128,7 @@ export const Video = ({
   // Local UI flags for progress interactions (kept for future use)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isDraggingProgress, setIsDraggingProgress] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [hoverProgress, setHoverProgress] = useState<number | null>(null);
   const progressContainerRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout>(null);
@@ -170,19 +192,10 @@ export const Video = ({
     { value: 2, label: "2x" },
   ];
 
-  const sleepOptions = [
-    { value: "15", label: "15 minutes" },
-    { value: "30", label: "30 minutes" },
-    { value: "45", label: "45 minutes" },
-    { value: "60", label: "60 minutes" },
-    { value: "90", label: "90 minutes" },
-    { value: "off", label: "Off" },
-  ];
-
   const subtitleOptions = [
     { value: "en", label: "English" },
-    { value: "es", label: "Spanish" },
-    { value: "fr", label: "French" },
+    { value: "ko", label: "Korean" },
+    { value: "zh-CN", label: "Chinese" },
     { value: "off", label: "Off" },
   ];
 
@@ -329,35 +342,107 @@ export const Video = ({
   };
 
   // Playlist functions
-  const playVideo = useCallback((index: number) => {
-    if (index >= 0 && index) {
-      setCurrentVideoIndex(index);
-      setCurrentTime(0);
-      setThumbnailsGenerated(false);
-      setThumbnails([]);
-
-      // Reset video state
-      const video = videoRef.current;
-      if (video) {
-        video.currentTime = 0;
-        setIsPlaying(true);
-      }
+  const initializeNativePlayback = useCallback((videoElement: HTMLVideoElement) => {
+    if (playerRef.current) {
+      playerRef.current.destroy();
+      playerRef.current = null;
     }
-  }, []);
+
+    try {
+      // Try HLS first
+      videoElement.src = `https://stream.mux.com/${playbackId}.m3u8`;
+    } catch (error) {
+      console.error('Native HLS playback failed:', error);
+      videoElement.src = `https://stream.mux.com/${playbackId}/medium.mp4`;
+    }
+  }, [playbackId]);
+
+  const playVideo = useCallback(async (targetEpisodeId: string) => {
+    if (!episodes?.length || !playbackId) return;
+    
+    const episode = episodes.find((ep: Episode) => ep.id === targetEpisodeId);
+    if (!episode) return;
+
+    const video = videoRef.current;
+    const player = playerRef.current;
+    if (!video) return;
+
+    const wasPlaying = !video.paused;
+    const currentVolume = video.volume;
+    const wasMuted = video.muted;
+
+    // Reset states
+    setCurrentTime(0);
+    setThumbnailsGenerated(false);
+    setThumbnails([]);
+
+    try {
+      // Clean up existing player if it exists
+      if (player) {
+        await player.destroy();
+        playerRef.current = null;
+      }
+
+      // Try Shaka Player first
+      try {
+        if (shaka.Player.isBrowserSupported()) {
+          const newPlayer = new shaka.Player(video);
+          playerRef.current = newPlayer;
+          
+          // Configure error handlers before loading
+          newPlayer.addEventListener('error', (error) => {
+            console.error('Shaka player error:', error);
+            initializeNativePlayback(video);
+          });
+
+          await newPlayer.load(`https://stream.mux.com/${playbackId}.m3u8`);
+        } else {
+          initializeNativePlayback(video);
+        }
+      } catch (error) {
+        console.error('Video playback initialization failed:', error);
+        initializeNativePlayback(video);
+      }
+
+      // Restore video state
+      video.currentTime = 0;
+      video.volume = currentVolume;
+      video.muted = wasMuted;
+
+      if (wasPlaying) {
+        try {
+          await video.play();
+          setIsPlaying(true);
+        } catch (playError) {
+          console.warn('Failed to resume playback:', playError);
+          setIsPlaying(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error during video transition:', error);
+      setIsPlaying(false);
+    }
+  }, [playbackId, episodes, initializeNativePlayback]);
+
+
 
   const playNext = useCallback(() => {
-    const nextIndex = currentVideoIndex + 1;
-    if (nextIndex) {
-      playVideo(nextIndex);
+    if (!episodes?.length || !episodeId || !canGoNext) return;
+    const currentIndex = episodes.findIndex((ep: Episode) => ep.id === episodeId);
+    const nextEpisode = episodes[currentIndex + 1];
+    if (nextEpisode) {
+      playVideo(nextEpisode.id);
     }
-  }, [currentVideoIndex, playVideo]);
+  }, [episodes, episodeId, playVideo, canGoNext]);
 
   const playPrevious = useCallback(() => {
-    const prevIndex = currentVideoIndex - 1;
-    if (prevIndex >= 0) {
-      playVideo(prevIndex);
+    if (!episodes?.length || !episodeId || !canGoPrevious) return;
+    const currentIndex = episodes.findIndex((ep: Episode) => ep.id === episodeId);
+    const previousEpisode = episodes[currentIndex - 1];
+    if (previousEpisode) {
+      playVideo(previousEpisode.id);
     }
-  }, [currentVideoIndex, playVideo]);
+  }, [episodes, episodeId, playVideo, canGoPrevious]);
 
   // Generate thumbnails
   const generateThumbnails = useCallback(async () => {
@@ -502,10 +587,24 @@ export const Video = ({
       }
 
       try {
-        // Ensure any existing player is destroyed
+        // Store current state before destroying player
+        const currentTime = video.currentTime;
+        const wasPlaying = !video.paused;
+
+        // Only reinitialize if necessary
         if (playerRef.current) {
-          playerRef.current.destroy();
+          try {
+            await playerRef.current.load(src);
+            // Restore state
+            video.currentTime = currentTime;
+            if (wasPlaying) video.play();
+            return;
+          } catch (error) {
+            console.warn("Failed to reuse player, reinitializing:", error);
+            playerRef.current.destroy();
+          }
         }
+
         const player = new shaka.Player(video);
         playerRef.current = player as InstanceType<typeof shaka.Player>;
 
@@ -545,7 +644,11 @@ export const Video = ({
         // Load the HLS manifest
         await player.load(src);
 
-        if (typeof initialSeek === "number" && initialSeek > 0) {
+        // Restore saved state or use initial seek
+        if (currentTime > 0) {
+          video.currentTime = currentTime;
+          if (wasPlaying) video.play();
+        } else if (typeof initialSeek === "number" && initialSeek > 0) {
           video.currentTime = initialSeek;
         }
 
@@ -586,44 +689,45 @@ export const Video = ({
   }, [playbackId, initialSeek, onCanPlay]);
 
   useEffect(() => {
-    // Always show controls initially when entering fullscreen on mobile
-    if (isFullscreen && isMobile) {
-      setIsContentVisible(true);
+    const resetControlsTimeout = () => {
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current);
-      }
-
-      // Only set hide timeout if we're not interacting with controls
-      if (!isControlsInteraction && isPlaying) {
-        controlsTimeoutRef.current = setTimeout(() => {
-          setIsContentVisible(false);
-        }, 3500); // Longer timeout for mobile
-      }
-
-      return () => {
-        if (controlsTimeoutRef.current) {
-          clearTimeout(controlsTimeoutRef.current);
-        }
-      };
-    }
-
-    // Regular behavior for non-mobile or non-fullscreen
-    if (isHover || !isPlaying) {
-      setIsContentVisible(true);
-      if (controlsTimeoutRef.current) {
-        clearTimeout(controlsTimeoutRef.current);
-      }
-    } else {
-      controlsTimeoutRef.current = setTimeout(() => {
-        setIsContentVisible(false);
-      }, 2000);
-    }
-
-    return () => {
-      if (controlsTimeoutRef.current) {
-        clearTimeout(controlsTimeoutRef.current);
+        controlsTimeoutRef.current = null;
       }
     };
+
+    const startHideTimer = (delay: number) => {
+      resetControlsTimeout();
+      if (isPlaying && !isControlsInteraction) {
+        controlsTimeoutRef.current = setTimeout(() => {
+          // Only hide if still playing and not interacting
+          if (isPlaying && !isControlsInteraction) {
+            setIsContentVisible(false);
+          }
+        }, delay);
+      }
+    };
+
+    // Show controls in these cases
+    const shouldShowControls = 
+      !isPlaying || // Always show when paused
+      isControlsInteraction || // Show while interacting with controls
+      (isFullscreen && isMobile) || // Show in mobile fullscreen
+      isHover; // Show on hover
+
+    if (shouldShowControls) {
+      setIsContentVisible(true);
+      resetControlsTimeout();
+
+      // Start hide timer only if playing and not interacting
+      if (isPlaying && !isControlsInteraction) {
+        startHideTimer(isFullscreen ? 3500 : 2000);
+      }
+    } else {
+      startHideTimer(2000);
+    }
+
+    return resetControlsTimeout;
   }, [isHover, isPlaying, isFullscreen, isMobile, isControlsInteraction]);
 
   const lockOrientationToLandscape = useCallback(async () => {
@@ -681,31 +785,33 @@ export const Video = ({
       const target = e.target as HTMLElement;
       const isControlElement = target.closest('button, input, [role="slider"]');
 
+      const resetControlsTimeout = () => {
+        if (controlsTimeoutRef.current) {
+          clearTimeout(controlsTimeoutRef.current);
+          controlsTimeoutRef.current = null;
+        }
+      };
+
       if (isControlElement) {
-        // If touching a control, keep controls visible
+        // If touching a control, keep controls visible and mark as interacting
         setIsControlsInteraction(true);
         setIsContentVisible(true);
-        if (controlsTimeoutRef.current) {
-          clearTimeout(controlsTimeoutRef.current);
-        }
+        resetControlsTimeout();
       } else {
-        // If touching the video area, toggle controls
+        // If touching the video area, toggle controls visibility
         setIsContentVisible((prev) => !prev);
+        resetControlsTimeout();
 
-        if (controlsTimeoutRef.current) {
-          clearTimeout(controlsTimeoutRef.current);
-        }
-
-        // Only set hide timeout if we're playing and not interacting with controls
-        if (isPlaying && !isControlsInteraction) {
+        // Start a new hide timer if playing
+        if (isPlaying) {
           controlsTimeoutRef.current = setTimeout(() => {
             setIsContentVisible(false);
             setIsControlsInteraction(false);
-          }, 3500);
+          }, isFullscreen ? 3500 : 2000);
         }
       }
     },
-    [isMobile, isPlaying, isControlsInteraction]
+    [isMobile, isPlaying, isFullscreen]
   );
 
   const toggleFullscreen = useCallback(async () => {
@@ -857,10 +963,14 @@ export const Video = ({
 
     const onPlay = () => {
       setIsPlaying(true);
+      setShowPlayPauseIndicator(true);
+      setTimeout(() => setShowPlayPauseIndicator(false), 1000);
     };
 
     const onPause = () => {
       setIsPlaying(false);
+      setShowPlayPauseIndicator(true);
+      setTimeout(() => setShowPlayPauseIndicator(false), 1000);
     };
 
     const handleTimeUpdate = () => {
@@ -931,8 +1041,12 @@ export const Video = ({
 
     if (isPlaying) {
       video.play().catch(() => setIsPlaying(false));
+      setShowPlayPauseIndicator(true);
+      setTimeout(() => setShowPlayPauseIndicator(false), 1000);
     } else {
       video.pause();
+      setShowPlayPauseIndicator(true);
+      setTimeout(() => setShowPlayPauseIndicator(false), 1000);
     }
   }, [isPlaying]);
 
@@ -1025,14 +1139,14 @@ export const Video = ({
   };
 
   const navigateTo = (
-    view: "main" | "quality" | "speed" | "subtitles" | "sleep"
+    view: "main" | "quality" | "speed" | "subtitles" | "audio"
   ) => {
     setSettingsView(view);
   };
 
   // Calculate direction for animations
   const getDirection = (current: string, target: string) => {
-    const views = ["main", "quality", "speed", "subtitles", "sleep"];
+    const views = ["main", "quality", "speed", "subtitles", "audio"];
     const currentIndex = views.indexOf(current);
     const targetIndex = views.indexOf(target);
     return targetIndex > currentIndex ? 1 : -1;
@@ -1055,12 +1169,6 @@ export const Video = ({
           setTimeout(() => setIsControlsInteraction(false), 300);
         }}
       >
-        {/* Ambient mode background effect 
-        {ambientMode && (
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-blue-500/10 to-indigo-500/10 rounded-lg blur-xl" />
-        )}
-  */}
-
         <div className="flex gap-4">
           {/* Playlist sidebar */}
 
@@ -1077,7 +1185,12 @@ export const Video = ({
 
             <div
               className={cn(
-                "relative aspect-video -mt-4 bg-black transition-all duration-1000 overflow-hidden",
+                "relative bg-black transition-all duration-1000 overflow-hidden -mt-6 lg:-mt-4 xl:-mt-4",
+                // Non-fullscreen mode: maintain aspect ratio for all devices
+                !isFullscreen && "aspect-video",
+                // Fullscreen mode: specific heights for mobile and desktop
+                isFullscreen && !isMobile && "h-full", // Full height for desktop fullscreen
+                isFullscreen && "h-[400px] lg:h-full xl:h-full w-full", // Fixed height for mobile fullscreen
                 className
               )}
             >
@@ -1087,6 +1200,7 @@ export const Video = ({
                 poster={thumbnail}
                 onClick={togglePlay}
                 onCanPlay={onCanPlay}
+                onLoadStart={onLoadStart}
                 playsInline
                 crossOrigin="anonymous"
               />
@@ -1115,25 +1229,6 @@ export const Video = ({
                   </motion.div>
                 )}
 
-                {showPlayPauseIndicator && (
-                  <motion.div
-                    className="absolute top-4 left-4 bg-black/80 text-white px-3 py-2 rounded-lg flex items-center gap-2"
-                    variants={indicatorVariants}
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
-                  >
-                    {isPlaying ? (
-                      <Pause className="w-4 h-4" />
-                    ) : (
-                      <Play className="w-4 h-4" />
-                    )}
-                    <span className="text-sm font-medium">
-                      {isPlaying ? "Playing" : "Paused"}
-                    </span>
-                  </motion.div>
-                )}
-
                 {showSeekIndicator && (
                   <motion.div
                     className="absolute top-1/2 left-1/2 bg-black/80 text-white px-4 py-3 rounded-lg flex items-center gap-2"
@@ -1157,12 +1252,9 @@ export const Video = ({
 
               {/* Play/Pause overlay */}
               <AnimatePresence>
-                {!isPlaying && (
+                {showPlayPauseIndicator && (
                   <motion.div
-                    className={cn(
-                      "absolute inset-0 flex items-center justify-center bottom-0",
-                      isMobile && "bottom-28"
-                    )}
+                    className="absolute inset-0 flex items-center justify-center bottom-8"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
@@ -1170,11 +1262,30 @@ export const Video = ({
                   >
                     <motion.button
                       onClick={togglePlay}
-                      className="flex items-center justify-center size-16 text-white bg-black/50 rounded-full"
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.95 }}
+                      className="flex items-center justify-center size-16 text-white bg-black/50 backdrop-blur-sm rounded-full transition-colors hover:bg-black/70"
+                      whileHover={{
+                        scale: 1.1,
+                        transition: { duration: 0.2 },
+                      }}
+                      whileTap={{
+                        scale: 0.9,
+                        transition: { duration: 0.1 },
+                      }}
+                      initial={{ scale: 0.95 }}
+                      animate={{
+                        scale: 1,
+                        transition: {
+                          type: "spring",
+                          stiffness: 300,
+                          damping: 20,
+                        },
+                      }}
                     >
-                      <Play className="w-8 h-8 fill-white" />
+                      {isPlaying ? (
+                        <Play className="w-8 h-8 fill-white transition-transform duration-200" />
+                      ) : (
+                        <PauseIcon className="size-8 fill-white transition-transform duration-200" />
+                      )}
                     </motion.button>
                   </motion.div>
                 )}
@@ -1183,12 +1294,7 @@ export const Video = ({
               {/* Controls overlay */}
               {isContentVisible && (
                 <motion.div
-                  className={cn(
-                    "absolute inset-x-0 z-10 bottom-0",
-                    isMobile && !isFullscreen && "bottom-0", // Add spacing when NOT in fullscreen
-                    isFullscreen && isMobile && "bottom-20",
-                    isFullscreen && "bottom-20", // Stick to bottom when in fullscreen
-                  )}
+                  className="absolute inset-x-0 z-10 bottom-0"
                   variants={controlsVariants}
                   initial="hidden"
                   animate="visible"
@@ -1252,7 +1358,7 @@ export const Video = ({
                       onValueCommit={() => {
                         setTimeout(() => setIsDraggingProgress(false), 500);
                       }}
-                      className="w-full [&>span:first-child]:h-1 [&>span:first-child]:bg-white/30 [&_[role=slider]]:bg-violet-500 [&_[role=slider]]:w-3 [&_[role=slider]]:h-3 [&_[role=slider]]:border-0 [&>span:first-child_span]:bg-violet-500 [&_[role=slider]:focus-visible]:ring-0 [&_[role=slider]:focus-visible]:ring-offset-0 [&_[role=slider]:focus-visible]:scale-105 [&_[role=slider]:focus-visible]:transition-transform"
+                      className="w-full cursor-pointer [&>span:first-child]:h-1 [&>span:first-child]:bg-white/30 [&_[role=slider]]:bg-violet-500 [&_[role=slider]]:w-3 [&_[role=slider]]:h-3 [&_[role=slider]]:border-0 [&>span:first-child_span]:bg-violet-500 [&_[role=slider]:focus-visible]:ring-0 [&_[role=slider]:focus-visible]:ring-offset-0 [&_[role=slider]:focus-visible]:scale-105 [&_[role=slider]:focus-visible]:transition-transform"
                     />
 
                     {/* Progress markers */}
@@ -1281,22 +1387,14 @@ export const Video = ({
                     )}
                   >
                     <div className="flex items-center gap-2">
-                      <motion.button
-                        onClick={playPrevious}
-                        className="p-1 text-white rounded hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Previous video"
-                        disabled={currentVideoIndex === 0 && false}
-                      >
-                        <SkipBack className="w-5 h-5" />
-                      </motion.button>
-
                       {!isMobile && (
                         <motion.button
-                          onClick={() => seekBackward(10)}
-                          className="p-1 text-white rounded hover:bg-white/10"
-                          title="Rewind 10 seconds"
+                          onClick={playPrevious}
+                          className="p-1 text-white rounded hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Previous video"
+                          disabled={!canGoPrevious}
                         >
-                          <RotateCcw className="w-5 h-5" />
+                          <SkipBack className="w-5 h-5" />
                         </motion.button>
                       )}
 
@@ -1313,21 +1411,14 @@ export const Video = ({
 
                       {!isMobile && (
                         <motion.button
-                          onClick={() => seekForward(10)}
-                          className="p-1 text-white rounded hover:bg-white/10"
-                          title="Fast forward 10 seconds"
+                          onClick={playNext}
+                          className="p-1 text-white rounded hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={!canGoNext}
+                          title="Next video"
                         >
-                          <RotateCw className="size-5" />
+                          <SkipForward className="size-5" />
                         </motion.button>
                       )}
-
-                      <motion.button
-                        onClick={playNext}
-                        className="p-1 text-white rounded hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Next video"
-                      >
-                        <SkipForward className="size-5" />
-                      </motion.button>
                       <div className="flex items-center gap-x-0.5 text-white">
                         <span>{formatTime(currentTime)}</span>
                         <span>/</span>
@@ -1383,7 +1474,7 @@ export const Video = ({
                                     );
                                   }}
                                   orientation="vertical"
-                                  className="h-2 [&>span:first-child]:w-1 [&>span:first-child]:bg-white/30 [&_[role=slider]]:bg-violet-500 [&_[role=slider]]:w-3 [&_[role=slider]]:h-3 [&_[role=slider]]:border-0 [&>span:first-child_span]:bg-violet-500 data-[orientation=vertical]:min-h-4 [&_[role=slider]:focus-visible]:ring-0 [&_[role=slider]:focus-visible]:ring-offset-0 [&_[role=slider]:focus-visible]:scale-105 [&_[role=slider]:focus-visible]:transition-transform [&_[role=slider]]:pt-1"
+                                  className="h-2 cursor-pointer [&>span:first-child]:w-1 [&>span:first-child]:bg-white/30 [&_[role=slider]]:bg-violet-500 [&_[role=slider]]:w-3 [&_[role=slider]]:h-3 [&_[role=slider]]:border-0 [&>span:first-child_span]:bg-violet-500 data-[orientation=vertical]:min-h-4 [&_[role=slider]:focus-visible]:ring-0 [&_[role=slider]:focus-visible]:ring-offset-0 [&_[role=slider]:focus-visible]:scale-105 [&_[role=slider]:focus-visible]:transition-transform [&_[role=slider]]:pt-1"
                                 />
 
                                 {/* Volume percentage indicator */}
@@ -1419,10 +1510,10 @@ export const Video = ({
                       )}
                       {isFullscreen && (
                         <motion.button
-                          onClick={() => setShowPlaylist(!showPlaylist)}
+                          onClick={() => setShowEpisodePanel(!showEpisodePanel)}
                           className={cn(
                             "p-1 text-white rounded hover:bg-white/10",
-                            showPlaylist && "bg-white/20"
+                            showEpisodePanel && "bg-white/20"
                           )}
                           title="View episode"
                         >
@@ -1490,6 +1581,48 @@ export const Video = ({
 
               {/* Settings panel */}
               <AnimatePresence>
+                {showEpisodePanel && (
+                  <div
+                    className={cn(
+                      "absolute inset-x-0 z-20 xl:top-16 lg:top-8 top-4 flex items-start justify-end mr-4 h-full",
+                      isMobile ? "top-4" : "top-16"
+                    )}
+                  >
+                    <motion.div
+                      className="absolute inset-0"
+                      onClick={() => setShowEpisodePanel(false)}
+                      variants={settingsBackdropVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                    />
+
+                    <motion.div
+                      className="relative w-full h-[300px] max-w-xs bg-black/60 backdrop-blur-sm text-white rounded-lg shadow-lg overflow-hidden max-h-[80vh] overflow-y-auto"
+                      variants={settingsPanelVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      layout
+                    >
+                      <div className="ml-4 mr-4 my-4 flex items-center">
+                        {episodes.map((episode) => (
+                          <Button
+                            key={episode.id}
+                            variant={
+                              episodeId === episode.id ? "default" : "secondary"
+                            }
+                            className="mr-2 focus-visible:ring-transparent focus:outline-none"
+                          >
+                            {episode.episodeNumber}
+                          </Button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+              <AnimatePresence>
                 {showSettings && (
                   <div className="absolute bottom-16 inset-x-0 z-20 flex items-start justify-end mr-4">
                     <motion.div
@@ -1524,8 +1657,8 @@ export const Video = ({
                           <span className="text-sm font-medium">
                             {settingsView === "quality" && "Quality"}
                             {settingsView === "speed" && "Playback speed"}
-                            {settingsView === "subtitles" &&
-                              "Subtitles & Audio"}
+                            {settingsView === "subtitles" && "Subtitles"}
+                            {settingsView === "audio" && "Audio"}
                           </span>
                         </motion.div>
                       )}
@@ -1560,12 +1693,28 @@ export const Video = ({
                               >
                                 <div className="flex items-center gap-3">
                                   <Subtitles className="w-5 h-5" />
-                                  <span className="text-sm">
-                                    Subtitles & Audio
-                                  </span>
+                                  <span className="text-sm">Subtitles</span>
                                 </div>
                                 <div className="flex items-center gap-1 text-sm text-neutral-400">
                                   <span>Off</span>
+                                  <ChevronLeft className="w-4 h-4 rotate-180" />
+                                </div>
+                              </motion.button>
+                              <motion.button
+                                onClick={() => navigateTo("audio")}
+                                className="w-full flex items-center justify-between p-3 hover:bg-white/15 rounded-lg"
+                                variants={menuItemVariants}
+                                initial="hidden"
+                                animate="visible"
+                                custom={3}
+                                layout
+                              >
+                                <div className="flex items-center gap-3">
+                                  <MdOutlineRecordVoiceOver className="size-5" />
+                                  <span className="text-sm">Audio</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-sm text-neutral-400">
+                                  <span>Korean</span>
                                   <ChevronLeft className="w-4 h-4 rotate-180" />
                                 </div>
                               </motion.button>
@@ -1709,10 +1858,10 @@ export const Video = ({
                           </motion.div>
                         )}
 
-                        {/* Subtitles view */}
-                        {settingsView === "subtitles" && (
+                        {/* Audio view */}
+                        {settingsView === "audio" && (
                           <motion.div
-                            key="subtitles"
+                            key="audio"
                             className="p-1"
                             custom={1}
                             variants={settingsViewVariants}
@@ -1750,11 +1899,10 @@ export const Video = ({
                             </LayoutGroup>
                           </motion.div>
                         )}
-
-                        {/* Sleep timer view */}
-                        {settingsView === "sleep" && (
+                        {/* Subtitles view */}
+                        {settingsView === "subtitles" && (
                           <motion.div
-                            key="sleep"
+                            key="subtitles"
                             className="p-1"
                             custom={1}
                             variants={settingsViewVariants}
@@ -1764,20 +1912,18 @@ export const Video = ({
                             layout
                           >
                             <LayoutGroup>
-                              {sleepOptions.map((option, index) => (
+                              {subtitleOptions.map((option, index) => (
                                 <motion.button
                                   key={option.value}
                                   onClick={() => {
-                                    setSleepTimer(
-                                      option.value === "off"
-                                        ? null
-                                        : option.value
-                                    );
+                                    setSubtitles(option.value !== "off");
                                     navigateTo("main");
                                   }}
                                   className={cn(
                                     "w-full flex items-center justify-between p-3 hover:bg-white/15 rounded-lg",
-                                    sleepTimer === option.value && "bg-white/15"
+                                    option.value !== "off" &&
+                                      subtitles &&
+                                      "bg-white/15"
                                   )}
                                   variants={menuItemVariants}
                                   initial="hidden"

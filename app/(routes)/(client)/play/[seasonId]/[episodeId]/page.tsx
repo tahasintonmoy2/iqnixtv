@@ -59,7 +59,12 @@ export default async function WatchPage({
     include: {
       comments: {
         include: {
-          replies: true,
+          replies: {
+            include: {
+              user: true,
+              likes: true,
+            }
+          },
           user: true,
           likes: true,
         },
@@ -125,6 +130,7 @@ export default async function WatchPage({
               seriesId={series?.id ?? ""}
               episodeId={episodeId}
               isLocked={isLocked}
+              episodes={episodes}
               nextEpisodeId={nextEpisode?.id ?? ""}
               completeOnEnd={completeOnEnd}
             />
@@ -135,10 +141,8 @@ export default async function WatchPage({
             episodeId={episodeId}
           />
           <EpisodeBottomInfo
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            //@ts-expect-error
             episodes={episodes}
-            season={seasons}
+            seasons={seasons ? [seasons] : []}
             series={series ? [series] : []}
             contentAgeRating={series?.ageRating?.name ?? "Not Rated"}
             contentGenre={genreNames}

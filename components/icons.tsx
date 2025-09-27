@@ -37,6 +37,28 @@ export const UserIcon = () => {
   );
 };
 
+export const PauseIcon = ({
+  size = 16,
+  className,
+}: {
+  size?: number;
+  className?: string;
+}) => {
+  return (
+    <svg
+      height={size}
+      strokeLinejoin="round"
+      viewBox="0 0 16 16"
+      width={size}
+      className={className}
+      style={{ color: "currentcolor" }}
+    >
+      <rect x="3" y="2" width="3" height="12" fill="currentColor" />
+      <rect x="10" y="2" width="3" height="12" fill="currentColor" />
+    </svg>
+  );
+};
+
 export const AttachmentIcon = () => {
   return (
     <svg
