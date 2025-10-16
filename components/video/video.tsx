@@ -11,7 +11,6 @@ import {
   Clock,
   ClosedCaption,
   GalleryVerticalEnd,
-  Gauge,
   Maximize,
   Minimize,
   Pause,
@@ -20,6 +19,7 @@ import {
   RotateCcw,
   RotateCw,
   Settings,
+  Settings2,
   SkipBack,
   SkipForward,
   Subtitles,
@@ -88,19 +88,17 @@ export const Video = ({
 
   const [showPlaylist, setShowPlaylist] = useState(false);
   const [showEpisodePanel, setShowEpisodePanel] = useState(false);
-  
-
 
   // Compute next/previous availability
   const canGoNext = useMemo(() => {
     if (!episodes || !episodeId) return false;
-    const currentIndex = episodes.findIndex(ep => ep.id === episodeId);
+    const currentIndex = episodes.findIndex((ep) => ep.id === episodeId);
     return currentIndex < episodes.length - 1;
   }, [episodes, episodeId]);
 
   const canGoPrevious = useMemo(() => {
     if (!episodes || !episodeId) return false;
-    const currentIndex = episodes.findIndex(ep => ep.id === episodeId);
+    const currentIndex = episodes.findIndex((ep) => ep.id === episodeId);
     return currentIndex > 0;
   }, [episodes, episodeId]);
 
@@ -342,93 +340,99 @@ export const Video = ({
   };
 
   // Playlist functions
-  const initializeNativePlayback = useCallback((videoElement: HTMLVideoElement) => {
-    if (playerRef.current) {
-      playerRef.current.destroy();
-      playerRef.current = null;
-    }
-
-    try {
-      // Try HLS first
-      videoElement.src = `https://stream.mux.com/${playbackId}.m3u8`;
-    } catch (error) {
-      console.error('Native HLS playback failed:', error);
-      videoElement.src = `https://stream.mux.com/${playbackId}/medium.mp4`;
-    }
-  }, [playbackId]);
-
-  const playVideo = useCallback(async (targetEpisodeId: string) => {
-    if (!episodes?.length || !playbackId) return;
-    
-    const episode = episodes.find((ep: Episode) => ep.id === targetEpisodeId);
-    if (!episode) return;
-
-    const video = videoRef.current;
-    const player = playerRef.current;
-    if (!video) return;
-
-    const wasPlaying = !video.paused;
-    const currentVolume = video.volume;
-    const wasMuted = video.muted;
-
-    // Reset states
-    setCurrentTime(0);
-    setThumbnailsGenerated(false);
-    setThumbnails([]);
-
-    try {
-      // Clean up existing player if it exists
-      if (player) {
-        await player.destroy();
+  const initializeNativePlayback = useCallback(
+    (videoElement: HTMLVideoElement) => {
+      if (playerRef.current) {
+        playerRef.current.destroy();
         playerRef.current = null;
       }
 
-      // Try Shaka Player first
       try {
-        if (shaka.Player.isBrowserSupported()) {
-          const newPlayer = new shaka.Player(video);
-          playerRef.current = newPlayer;
-          
-          // Configure error handlers before loading
-          newPlayer.addEventListener('error', (error) => {
-            console.error('Shaka player error:', error);
-            initializeNativePlayback(video);
-          });
+        // Try HLS first
+        videoElement.src = `https://stream.mux.com/${playbackId}.m3u8`;
+      } catch (error) {
+        console.error("Native HLS playback failed:", error);
+        videoElement.src = `https://stream.mux.com/${playbackId}/medium.mp4`;
+      }
+    },
+    [playbackId]
+  );
 
-          await newPlayer.load(`https://stream.mux.com/${playbackId}.m3u8`);
-        } else {
+  const playVideo = useCallback(
+    async (targetEpisodeId: string) => {
+      if (!episodes?.length || !playbackId) return;
+
+      const episode = episodes.find((ep: Episode) => ep.id === targetEpisodeId);
+      if (!episode) return;
+
+      const video = videoRef.current;
+      const player = playerRef.current;
+      if (!video) return;
+
+      const wasPlaying = !video.paused;
+      const currentVolume = video.volume;
+      const wasMuted = video.muted;
+
+      // Reset states
+      setCurrentTime(0);
+      setThumbnailsGenerated(false);
+      setThumbnails([]);
+
+      try {
+        // Clean up existing player if it exists
+        if (player) {
+          await player.destroy();
+          playerRef.current = null;
+        }
+
+        // Try Shaka Player first
+        try {
+          if (shaka.Player.isBrowserSupported()) {
+            const newPlayer = new shaka.Player(video);
+            playerRef.current = newPlayer;
+
+            // Configure error handlers before loading
+            newPlayer.addEventListener("error", (error) => {
+              console.error("Shaka player error:", error);
+              initializeNativePlayback(video);
+            });
+
+            await newPlayer.load(`https://stream.mux.com/${playbackId}.m3u8`);
+          } else {
+            initializeNativePlayback(video);
+          }
+        } catch (error) {
+          console.error("Video playback initialization failed:", error);
           initializeNativePlayback(video);
         }
-      } catch (error) {
-        console.error('Video playback initialization failed:', error);
-        initializeNativePlayback(video);
-      }
 
-      // Restore video state
-      video.currentTime = 0;
-      video.volume = currentVolume;
-      video.muted = wasMuted;
+        // Restore video state
+        video.currentTime = 0;
+        video.volume = currentVolume;
+        video.muted = wasMuted;
 
-      if (wasPlaying) {
-        try {
-          await video.play();
-          setIsPlaying(true);
-        } catch (playError) {
-          console.warn('Failed to resume playback:', playError);
-          setIsPlaying(false);
+        if (wasPlaying) {
+          try {
+            await video.play();
+            setIsPlaying(true);
+          } catch (playError) {
+            console.warn("Failed to resume playback:", playError);
+            setIsPlaying(false);
+          }
         }
+      } catch (error) {
+        console.error("Error during video transition:", error);
+        setIsPlaying(false);
       }
-    } catch (error) {
-      console.error('Error during video transition:', error);
-      setIsPlaying(false);
-    }
-  }, [playbackId, episodes, initializeNativePlayback]);
-
-
+    },
+    [playbackId, episodes, initializeNativePlayback]
+  );
 
   const playNext = useCallback(() => {
     if (!episodes?.length || !episodeId || !canGoNext) return;
-    const currentIndex = episodes.findIndex((ep: Episode) => ep.id === episodeId);
+    const currentIndex = episodes.findIndex(
+      (ep: Episode) => ep.id === episodeId
+    );
     const nextEpisode = episodes[currentIndex + 1];
     if (nextEpisode) {
       playVideo(nextEpisode.id);
@@ -437,7 +441,9 @@ export const Video = ({
 
   const playPrevious = useCallback(() => {
     if (!episodes?.length || !episodeId || !canGoPrevious) return;
-    const currentIndex = episodes.findIndex((ep: Episode) => ep.id === episodeId);
+    const currentIndex = episodes.findIndex(
+      (ep: Episode) => ep.id === episodeId
+    );
     const previousEpisode = episodes[currentIndex - 1];
     if (previousEpisode) {
       playVideo(previousEpisode.id);
@@ -709,7 +715,7 @@ export const Video = ({
     };
 
     // Show controls in these cases
-    const shouldShowControls = 
+    const shouldShowControls =
       !isPlaying || // Always show when paused
       isControlsInteraction || // Show while interacting with controls
       (isFullscreen && isMobile) || // Show in mobile fullscreen
@@ -734,7 +740,8 @@ export const Video = ({
     if (!isMobile || !screen?.orientation) return;
 
     try {
-      //@ts-expect-error - Screen orientation lock API types are not fully supported in TypeScript
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      //@ts-expect-error
       await screen.orientation.lock("landscape");
     } catch (error) {
       // Silently fail - orientation lock is not critical
@@ -804,10 +811,13 @@ export const Video = ({
 
         // Start a new hide timer if playing
         if (isPlaying) {
-          controlsTimeoutRef.current = setTimeout(() => {
-            setIsContentVisible(false);
-            setIsControlsInteraction(false);
-          }, isFullscreen ? 3500 : 2000);
+          controlsTimeoutRef.current = setTimeout(
+            () => {
+              setIsContentVisible(false);
+              setIsControlsInteraction(false);
+            },
+            isFullscreen ? 3500 : 2000
+          );
         }
       }
     },
@@ -854,6 +864,11 @@ export const Video = ({
     undefined
   );
 
+  // Toggle mute
+  const toggleMute = useCallback(() => {
+    setIsMuted(!isMuted);
+  }, [isMuted]);
+
   // Handle orientation locking when fullscreen state changes
   useEffect(() => {
     if (!isMobile) return;
@@ -884,8 +899,8 @@ export const Video = ({
           "ArrowRight",
           "KeyP",
           "KeyL",
-          "M",
-          "F",
+          "KeyM",
+          "KeyF",
         ].includes(e.code)
       ) {
         e.preventDefault();
@@ -933,8 +948,11 @@ export const Video = ({
         case "KeyL":
           setShowPlaylist(!showPlaylist);
           break;
-        case "F":
+        case "KeyF":
           toggleFullscreen();
+          break;
+        case "KeyM":
+          toggleMute();
           break;
       }
     };
@@ -954,6 +972,7 @@ export const Video = ({
     togglePictureInPicture,
     togglePlay,
     toggleFullscreen,
+    toggleMute,
   ]);
 
   // Handle video events
@@ -1113,11 +1132,6 @@ export const Video = ({
     const newTime = (value[0] / 100) * duration;
     video.currentTime = newTime;
     setCurrentTime(newTime);
-  };
-
-  // Toggle mute
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
   };
 
   // Handle volume change
@@ -1387,46 +1401,55 @@ export const Video = ({
                     )}
                   >
                     <div className="flex items-center gap-2">
-                      {!isMobile && (
+                      <div className=" bg-black/30 backdrop-blur-sm px-1 py-1 rounded-full">
                         <motion.button
-                          onClick={playPrevious}
-                          className="p-1 text-white rounded hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Previous video"
-                          disabled={!canGoPrevious}
+                          onClick={togglePlay}
+                          className="p-1.5 text-white rounded-full hover:bg-white/20"
                         >
-                          <SkipBack className="w-5 h-5" />
+                          {isPlaying ? (
+                            <Pause className="size-5" />
+                          ) : (
+                            <Play className="size-5" />
+                          )}
                         </motion.button>
-                      )}
-
-                      <motion.button
-                        onClick={togglePlay}
-                        className="p-1 text-white rounded hover:bg-white/10"
-                      >
-                        {isPlaying ? (
-                          <Pause className="size-5" />
-                        ) : (
-                          <Play className="size-5" />
+                      </div>
+                      <div
+                        className={cn(
+                          "",
+                          !isMobile &&
+                            "bg-black/30 backdrop-blur-sm px-1 py-1 rounded-full"
                         )}
-                      </motion.button>
+                      >
+                        {!isMobile && (
+                          <motion.button
+                            onClick={playPrevious}
+                            className="py-1.5 px-3 text-white rounded-full hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed mr-2"
+                            title="Previous video"
+                            disabled={!canGoPrevious}
+                          >
+                            <SkipBack className="w-5 h-5" />
+                          </motion.button>
+                        )}
 
-                      {!isMobile && (
-                        <motion.button
-                          onClick={playNext}
-                          className="p-1 text-white rounded hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={!canGoNext}
-                          title="Next video"
-                        >
-                          <SkipForward className="size-5" />
-                        </motion.button>
-                      )}
-                      <div className="flex items-center gap-x-0.5 text-white">
+                        {!isMobile && (
+                          <motion.button
+                            onClick={playNext}
+                            className="py-1.5 px-3 text-white rounded-full hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={!canGoNext}
+                            title="Next video"
+                          >
+                            <SkipForward className="size-5" />
+                          </motion.button>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-x-0.5 text-white bg-black/30 backdrop-blur-sm px-4 py-2 rounded-full">
                         <span>{formatTime(currentTime)}</span>
                         <span>/</span>
                         <span>{formatTime(duration)}</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 ml-auto">
+                    <div className="flex items-center ml-auto bg-black/30 backdrop-blur-sm px-4 py-2 rounded-full">
                       <div className="relative">
                         <motion.button
                           onClick={toggleMute}
@@ -1436,7 +1459,7 @@ export const Video = ({
                               setShowVolumeSlider(false);
                             }
                           }}
-                          className="p-1 text-white rounded hover:bg-white/10"
+                          className="py-1.5 px-3 text-white rounded-full hover:bg-white/10"
                         >
                           {isMuted ? (
                             <VolumeX className="size-5" />
@@ -1501,8 +1524,8 @@ export const Video = ({
                         <motion.button
                           onClick={() => setShowPlaylist(!showPlaylist)}
                           className={cn(
-                            "p-1 text-white rounded hover:bg-white/10",
-                            showPlaylist && "bg-white/20"
+                            "py-1 px-3 text-white rounded-full hover:bg-white/10",
+                            showPlaylist && "bg-white/10"
                           )}
                         >
                           <ClosedCaption className="size-6" />
@@ -1512,8 +1535,8 @@ export const Video = ({
                         <motion.button
                           onClick={() => setShowEpisodePanel(!showEpisodePanel)}
                           className={cn(
-                            "p-1 text-white rounded hover:bg-white/10",
-                            showEpisodePanel && "bg-white/20"
+                            "py-1 px-3 text-white rounded-full hover:bg-white/10",
+                            showEpisodePanel && "bg-white/10"
                           )}
                           title="View episode"
                         >
@@ -1525,8 +1548,8 @@ export const Video = ({
                         <motion.button
                           onClick={togglePictureInPicture}
                           className={cn(
-                            "p-1 text-white rounded hover:bg-white/10",
-                            isPictureInPicture && "bg-white/20"
+                            "py-1 px-3 text-white rounded-full hover:bg-white/10",
+                            isPictureInPicture && "bg-white/10"
                           )}
                           title={
                             isPictureInPicture
@@ -1551,7 +1574,7 @@ export const Video = ({
                             onOpen();
                           }
                         }}
-                        className="p-1 text-white rounded hover:bg-white/10"
+                        className="py-1.5 px-3 text-white rounded-full hover:bg-white/10"
                         title="Settings"
                       >
                         <Settings className="size-5" />
@@ -1559,9 +1582,7 @@ export const Video = ({
 
                       <motion.button
                         onClick={toggleFullscreen}
-                        className="p-1 text-white rounded hover:bg-white/10"
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.95 }}
+                        className="py-1.5 px-3 text-white rounded-full hover:bg-white/10"
                         title={
                           isFullscreen
                             ? "Exit Full screen"
@@ -1624,7 +1645,7 @@ export const Video = ({
               </AnimatePresence>
               <AnimatePresence>
                 {showSettings && (
-                  <div className="absolute bottom-16 inset-x-0 z-20 flex items-start justify-end mr-4">
+                  <div className="absolute bottom-20 inset-x-0 z-20 flex items-start justify-end mr-4">
                     <motion.div
                       className="absolute inset-0"
                       onClick={closeSettings}
@@ -1645,15 +1666,11 @@ export const Video = ({
                       {/* Settings header */}
                       {settingsView !== "main" && (
                         <motion.div
-                          className="flex items-center p-3 border-b border-neutral-700"
+                          className="flex items-center p-3 border-b border-neutral-700 cursor-pointer"
+                          onClick={() => navigateTo("main")}
                           layout
                         >
-                          <motion.button
-                            onClick={() => navigateTo("main")}
-                            className="p-1 mr-2 rounded hover:bg-white/15"
-                          >
-                            <ChevronLeft className="size-5" />
-                          </motion.button>
+                          <ChevronLeft className="size-5 mr-2" />
                           <span className="text-sm font-medium">
                             {settingsView === "quality" && "Quality"}
                             {settingsView === "speed" && "Playback speed"}
@@ -1692,7 +1709,7 @@ export const Video = ({
                                 layout
                               >
                                 <div className="flex items-center gap-3">
-                                  <Subtitles className="w-5 h-5" />
+                                  <Subtitles className="size-6" />
                                   <span className="text-sm">Subtitles</span>
                                 </div>
                                 <div className="flex items-center gap-1 text-sm text-neutral-400">
@@ -1710,7 +1727,7 @@ export const Video = ({
                                 layout
                               >
                                 <div className="flex items-center gap-3">
-                                  <MdOutlineRecordVoiceOver className="size-5" />
+                                  <MdOutlineRecordVoiceOver className="size-6" />
                                   <span className="text-sm">Audio</span>
                                 </div>
                                 <div className="flex items-center gap-1 text-sm text-neutral-400">
@@ -1754,7 +1771,7 @@ export const Video = ({
                                 layout
                               >
                                 <div className="flex items-center gap-3">
-                                  <Gauge className="w-5 h-5" />
+                                  <Settings2 className="size-6" />
                                   <span className="text-sm">Quality</span>
                                 </div>
                                 <div className="flex items-center gap-1 text-sm text-neutral-400">

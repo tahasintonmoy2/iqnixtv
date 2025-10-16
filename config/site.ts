@@ -1,4 +1,4 @@
 export const siteConfig = {
   name: "Iqnix TV",
-  description: "Collaborate, manage projects, and reach new productivity peaks",
+  description: "Watch the best K-Dramas, C-Dramas and J-Dramas with multi-language dubbing",
 };
