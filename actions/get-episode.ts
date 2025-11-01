@@ -13,24 +13,44 @@ export const getEpisode = async ({
   userId,
 }: GetChapterProps) => {
   try {
+    // First, check if the episode exists at all
+    const existingEpisode = await db.episode.findUnique({
+      where: { id: episodeId },
+      include: {
+        season: true,
+      },
+    });
+
+    if (!existingEpisode) {
+      throw new Error("Episode not found with the given ID");
+    }
+
+    // Then check if it belongs to the correct season
+    if (existingEpisode.seasonId !== seasonId) {
+      throw new Error("Episode does not belong to the specified season");
+    }
+
+    // Then check if both episode and season are published
     const season = await db.season.findUnique({
       where: {
         id: seasonId,
-        isPublished: true,
       },
     });
 
     if (!season) {
-      throw new Error("Season not found or not published");
+      throw new Error("Season not found");
     }
 
-    const episode = await db.episode.findUnique({
-      where: {
-        id: episodeId,
-        seasonId,  // Ensure episode belongs to the season
-        isPublished: true,
-      },
-    });
+    if (!season.isPublished) {
+      throw new Error("Season is not published");
+    }
+
+    if (!existingEpisode.isPublished) {
+      throw new Error("Episode exists but is not published");
+    }
+
+    // If we get here, we have a valid, published episode
+    const episode = existingEpisode;
 
     if (!episode) {
       // Check specific conditions for better error messages
@@ -98,12 +118,9 @@ export const getEpisode = async ({
     };
   } catch (error) {
     console.log("GET EPISODE ERROR", error);
-    return {
-      episode: null,
-      season: null,
-      muxData: null,
-      userProgress: null,
-      nextEpisode: null,
-    };
+    if (error instanceof Error) {
+      throw new Error(`Failed to fetch episode: ${error.message}`);
+    }
+    throw new Error("Failed to fetch episode data");
   }
 };

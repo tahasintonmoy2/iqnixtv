@@ -303,3 +303,156 @@
     width: -moz-available;
   }
 }
+
+@media screen and (max-width: 1366px) {
+  .control-overlay {
+    bottom: 0.2rem;
+  }
+  .video-player {
+    width: 950px;
+  }
+  .episode-bottom-info {
+    width: 950px;
+  }
+  .episode-info-mobile {
+    display: none;
+  }
+  .episode-info {
+    margin-left: 20rem;
+    width: 20rem;
+  }
+  .mobile-search-bar {
+    display: none;
+  }
+  .search-bar {
+    display: block;
+  }
+  .genre-container {
+    display: flex;
+  }
+  .title-bar {
+    display: flex;
+    justify-content: space-between;
+  }
+  .contin-watch-mobn {
+    display: none;
+  }
+  .contin-watch {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-gap: 1rem;
+  }
+}
+
+@media screen and (max-width: 1318px) {
+  .episode-bottom-info {
+    width: 59rem;
+  }
+  .episode-info-mobile {
+    display: none;
+  }
+  .episode-info {
+    margin-left: 21.2rem;
+    width: 19rem;
+  }
+  .mobile-search-bar {
+    display: none;
+  }
+  .search-bar {
+    display: block;
+  }
+  .genre-container {
+    display: flex;
+  }
+  .title-bar {
+    display: flex;
+    justify-content: space-between;
+  }
+  .contin-watch-mobn {
+    display: none;
+  }
+  .contin-watch {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-gap: 1rem;
+  }
+}
+
+@media screen and (max-width: 1024px) {
+  .control-overlay {
+    bottom: 5.2rem;
+  }
+  .video-player {
+    width: 740px;
+  }
+  .episode-bottom-info {
+    width: 62.5rem;
+  }
+  .episode-info-mobile {
+    display: none;
+  }
+  .episode-info {
+    margin-left: 16.2rem;
+    width: 15.2rem;
+  }
+  .mobile-search-bar {
+    display: none;
+  }
+  .search-bar {
+    display: block;
+  }
+  .genre-container {
+    display: flex;
+  }
+  .title-bar {
+    display: flex;
+    justify-content: space-between;
+    padding-inline: 0.8rem;
+  }
+  .contin-watch-mobn {
+    display: none;
+  }
+  .contin-watch {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-gap: 1rem;
+  }
+}
+
+@media screen and (max-width: 640px) {
+  .video-player {
+    width: 354px;
+  }
+  .mobile-search-bar {
+    display: block;
+  }
+  .search-bar {
+    display: none;
+  }
+  .title-bar {
+    display: flex;
+    flex-direction: column;
+  }
+  .episode-bottom-info {
+    width: 354px;
+  }
+  .episode-info-mobile {
+    display: block;
+  }
+  .episode-info {
+    margin-left: 0;
+    width: 100%;
+    display: none;
+  }
+  .genre-container {
+    display: none;
+  }
+  .contin-watch {
+    display: none;
+  }
+  .contin-watch-mobn {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-gap: 1rem;
+  }
+}

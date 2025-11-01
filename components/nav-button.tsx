@@ -13,7 +13,7 @@ export const NavButton = ({ href, label, isActive }: NavButtonProps) => {
       href={href}
       className={cn(
         "w-full lg:w-auto justify-between hover:text-violet-500 transition-colors",
-        isActive ? "text-violet-500" : "text-white"
+        isActive ? "text-violet-500" : "dark:text-white"
       )}
     >
       {label}

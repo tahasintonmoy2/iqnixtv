@@ -13,12 +13,11 @@ export const SearchButton = () => {
 
   return (
     <div>
-      {isMobile ? (
-        <>
+        <div className="mobile-search-bar">
           <Button 
             variant="ghost" 
             onClick={() => setIsMobileSearchOpen(true)}
-            className="h-9 w-9 p-0"
+            className="size-9 p-0"
           >
             <Search className="size-5" />
             <span className="sr-only">Search</span>
@@ -27,10 +26,10 @@ export const SearchButton = () => {
             isOpen={isMobileSearchOpen} 
             onClose={() => setIsMobileSearchOpen(false)} 
           />
-        </>
-      ) : (
+        </div>
+      <div className="search-bar">
         <SearchDropdown />
-      )}
+      </div>
     </div>
   );
 };

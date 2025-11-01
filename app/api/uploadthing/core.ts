@@ -21,6 +21,9 @@ export const ourFileRouter = {
   episodeVideo: f({ video: { maxFileCount: 1, maxFileSize: "2GB" } })
     .middleware(() => handleAuth())
     .onUploadComplete(() => ({ success: true })),
+  webvttSubtitles: f(["text/vtt"])
+    .middleware(() => handleAuth())
+    .onUploadComplete(() => ({ success: true })),
 } satisfies FileRouter;
 
 export type OurFileRouter = typeof ourFileRouter;

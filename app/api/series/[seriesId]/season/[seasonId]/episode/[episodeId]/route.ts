@@ -11,7 +11,7 @@ const { video } = new Mux({
 
 export async function GET(
   req: Request,
-  { params }: { params: Promise<{ seasonId: string, episodeId: string }> }
+  { params }: { params: Promise<{ seasonId: string; episodeId: string }> }
 ) {
   try {
     const { seasonId, episodeId } = await params;
@@ -35,10 +35,20 @@ export async function GET(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: Promise<{ seasonId: string; episodeId: string }> }
+  {
+    params,
+  }: {
+    params: Promise<{
+      seasonId: string;
+      episodeId: string;
+      languageCode: string;
+      url: string;
+      name: string;
+    }>;
+  }
 ) {
   try {
-    const { seasonId, episodeId } = await params;
+    const { seasonId, episodeId, languageCode, url, name } = await params;
     const user = await currentUser();
     const { ...values } = await req.json();
 
@@ -59,7 +69,7 @@ export async function PATCH(
     if (values.videoUrl) {
       try {
         console.log(`Creating Mux asset for videoUrl: ${values.videoUrl}`);
-        
+
         const asset = await video.assets.create({
           inputs: [
             {
@@ -75,6 +85,11 @@ export async function PATCH(
               ],
             },
           ],
+          video_quality: "premium",
+          meta: {
+            creator_id: user.id,
+            title: values.name,
+          },
           playback_policies: ["public"],
           max_resolution_tier: "2160p",
           test: false,
@@ -84,19 +99,30 @@ export async function PATCH(
           throw new Error("No playback IDs returned from Mux");
         }
 
-        const muxData = await db.muxData.upsert({
-          where: { episodeId },
-          update: {
-            assetId: asset.id,
-            playbackId: asset.playback_ids[0].id
-          },
-          create: {
-            episodeId,
-            assetId: asset.id,
-            playbackId: asset.playback_ids[0].id,
-          },
+        const track = await video.assets.createTrack(asset.id, {
+          language_code: languageCode,
+          type: "text",
+          url,
+          name,
+          text_type: "subtitles",
         });
 
+        if (track.type !== "text" || track.text_type !== "subtitles") {
+          throw new Error("Track type is not text");
+        }
+
+        // const muxData = await db.muxData.upsert({
+        //   where: { episodeId },
+        //   update: {
+        //     assetId: asset.id,
+        //     playbackId: asset.playback_ids[0].id
+        //   },
+        //   create: {
+        //     episodeId,
+        //     assetId: asset.id,
+        //     playbackId: asset.playback_ids[0].id,
+        //   },
+        // });
       } catch (muxError) {
         console.error("Error creating Mux asset or saving MuxData:", muxError);
         throw muxError;
@@ -105,7 +131,7 @@ export async function PATCH(
 
     return NextResponse.json(episode);
   } catch (error) {
-    console.log("[COURSES_EPISODE_ID]", error);
+    console.log("[SEASON_EPISODE_ID]", error);
     return new NextResponse("Internal Error", { status: 500 });
   }
 }

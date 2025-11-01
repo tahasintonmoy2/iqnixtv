@@ -2,16 +2,15 @@
 
 import "@mux/mux-player-react/themes/classic";
 import { Crown } from "lucide-react";
-// import Player from "next-video";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import shaka from "shaka-player/dist/shaka-player.compiled.js";
 import { toast } from "sonner";
 
+import { VideoPlayer as NextPlayer } from "@/components/video-player";
 import { useUser } from "@/hooks/use-user";
 import { Episode } from "@/lib/generated/prisma";
-import { cn } from "@/lib/utils";
 import axios from "axios";
-import { Video } from "./video";
 
 interface VideoPlayerProps {
   playbackId: string;
@@ -31,19 +30,20 @@ export const VideoPlayer = ({
   nextEpisodeId,
   seriesId,
   isLocked,
+  episodes,
   episodeId,
   playbackId,
-  completeOnEnd,
-  episodes,
   initialProgress = 0,
 }: VideoPlayerProps) => {
-  const [isReady, setIsReady] = useState(false);
-  const playerRef = useRef<HTMLVideoElement>(null);
+  const playerRef = useRef<InstanceType<typeof shaka.Player> | null>(null);
   const progressUpdateTimeoutRef = useRef<NodeJS.Timeout>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState(20);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  const [currentPlaylistIndex, setCurrentPlaylistIndex] = useState(0);
   const [showNextEpisodeIndicator, setShowNextEpisodeIndicator] =
     useState(false);
-  const [remainingSeconds, setRemainingSeconds] = useState(20);
+
   const router = useRouter();
   const user = useUser();
 
@@ -84,30 +84,9 @@ export const VideoPlayer = ({
     [updateProgress]
   );
 
-  // const onTimeUpdate = (event: React.SyntheticEvent<HTMLVideoElement>) => {
-  //   const player = event.target as HTMLVideoElement;
-  //   const timeLeft = player.duration - player.currentTime;
-
-  //   // Show indicator when 20 seconds are left and there's a next episode
-  //   if (timeLeft <= 20 && nextEpisodeId) {
-  //     if (!showNextEpisodeIndicator) {
-  //       setShowNextEpisodeIndicator(true);
-  //     }
-  //     // Update the remaining seconds (rounded to whole number)
-  //     setRemainingSeconds(Math.max(0, Math.floor(timeLeft)));
-  //   }
-  // };
-
   const onEnd = async () => {
     try {
-      if (completeOnEnd && nextEpisodeId) {
-        await axios.put(
-          `/api/series/${seriesId}/season/${seasonId}/episode/${episodeId}/progress`,
-          {
-            isCompleted: true,
-          }
-        );
-
+      if (nextEpisodeId) {
         router.refresh();
 
         if (nextEpisodeId) {
@@ -128,13 +107,13 @@ export const VideoPlayer = ({
     // Set initial progress after a small delay to ensure video is ready
     const initProgressTimeout = setTimeout(() => {
       if (initialProgress > 0 && player) {
-        player.currentTime = initialProgress;
+        player.currentTime(initialProgress);
       }
     }, 100);
 
     const handleTimeUpdate = () => {
-      const currentTime = player.currentTime;
-      const duration = player.duration;
+      const currentTime = player.currentTime();
+      const duration = player.duration();
 
       if (currentTime && duration) {
         debouncedUpdateProgress(currentTime, duration);
@@ -143,7 +122,7 @@ export const VideoPlayer = ({
 
     const handleLoadedData = () => {
       if (initialProgress > 0) {
-        player.currentTime = initialProgress;
+        player.currentTime(initialProgress);
       }
     };
 
@@ -157,36 +136,70 @@ export const VideoPlayer = ({
         player.removeEventListener("loadeddata", handleLoadedData);
       }
     };
-
   }, [isLoaded, debouncedUpdateProgress, initialProgress]);
+
+  const handlePlayNext = useCallback(() => {
+    setCurrentPlaylistIndex((prev) => {
+      const nextIndex = prev + 1;
+      if (nextIndex < episodes.length) {
+        return nextIndex;
+      }
+      return prev;
+    });
+  }, [episodes.length]);
+
+  const handlePlayPrevious = useCallback(() => {
+    const index = episodes.findIndex((episode) => episode.id === episodeId);
+    if (index !== -1) {
+      setCurrentPlaylistIndex(index);
+    }
+  }, [episodes, episodeId]);
+
+  const hasNext = currentPlaylistIndex < episodes.length - 1;
+  const hasPrevious = currentPlaylistIndex > 0;
+
+  const muxConfig = {
+    playbackId,
+  };
 
   return (
     <div className="relative aspect-video overflow-hidden">
-      {!isReady && !isLocked && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center border rounded-md">
+      {/*  {!isReady && !isLocked && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center rounded-md">
           <div className="loader-lg" />
-          <p className="mt-3">Please wait a moment, episode is loading</p>
+          <p className="mt-3">
+            {playbackError && !showError
+              ? "Checking playback availability..."
+              : "Please wait a moment, episode is loading"}
+          </p>
         </div>
-      )}
+      )} */}
       {isLocked && (
         <div className="absolute inset-0 flex flex-col items-center justify-center rounded-md border">
           <Crown className="size-8 text-yellow-400 fill-yellow-400" />
           <p className="text-center mx-2">
-            Please buy premium subscription to watch it.
+            Please buy VIP subscription to watch it.
           </p>
         </div>
       )}
-      {!isLocked && (
+      {!isLocked && !playbackId && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center rounded-md border bg-black/80">
+          <p className="text-white text-center">
+            Episode content is not available. Please try again later.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/80"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      {!isLocked && playbackId && (
         <div className="flex flex-col items-center justify-center rounded-lg">
-          <Video
-            playbackId={playbackId}
-            thumbnail={`https://image.mux.com/${playbackId}/thumbnail.png?time=20`}
-            className={cn(
-              "aspect-video rounded-lg overflow-hidden object-cover",
-              !isReady && "hidden"
-            )}
-            onCanPlay={() => setIsReady(true)}
-            onLoadStart={() => setIsLoaded(true)}
+          <NextPlayer
+            muxConfig={muxConfig}
+            thumbnail={`https://image.mux.com/${muxConfig.playbackId}/thumbnail.png?time=0`}
             onEnded={onEnd}
             onTimeUpdate={(currentTime, duration) => {
               // Handle progress updates
@@ -194,18 +207,64 @@ export const VideoPlayer = ({
 
               // Handle next episode indicator
               const timeLeft = duration - currentTime;
-              if (timeLeft <= 20 && nextEpisodeId) {
+              if (timeLeft <= 8 && nextEpisodeId) {
                 if (!showNextEpisodeIndicator) {
+                  setRemainingSeconds(Math.max(0, Math.floor(timeLeft)));
                   setShowNextEpisodeIndicator(true);
                 }
-                setRemainingSeconds(Math.max(0, Math.floor(timeLeft)));
+              } else {
+                setShowNextEpisodeIndicator(false);
+              }
+            }}
+            onLoadStart={() => setIsLoaded(true)}
+            onPlayNext={handlePlayNext}
+            onPlayPrevious={handlePlayPrevious}
+            hasNext={hasNext}
+            hasPrevious={hasPrevious}
+            episodes={episodes}
+            episodeId={episodeId}
+            className="rounded-lg overflow-hidden shadow-2xl"
+          />
+          {/* <Video
+            playbackId={playbackId}
+            thumbnail={`https://image.mux.com/${playbackId}/thumbnail.png?time=0`}
+            className={cn(
+              "aspect-video rounded-lg overflow-hidden object-cover",
+              !isReady && "hidden",
+            )}
+            onCanPlay={() => {
+              console.log("Video can play");
+              setIsReady(true);
+            }}
+            onLoadStart={() => {
+              console.log("Video load started");
+              setIsLoaded(true);
+            }}
+            onError={(error) => {
+              console.error("Video error:", error);
+              setPlaybackError(true);
+              setShowError(true);
+              toast.error("Error loading video. Please try again.");
+            }}
+            onEnded={onEnd}
+            onTimeUpdate={(currentTime, duration) => {
+              // Handle progress updates
+              debouncedUpdateProgress(currentTime, duration);
+
+              // Handle next episode indicator
+              const timeLeft = duration - currentTime;
+              if (timeLeft <= 8 && nextEpisodeId) {
+                if (!showNextEpisodeIndicator) {
+                  setRemainingSeconds(Math.max(0, Math.floor(timeLeft)));
+                  setShowNextEpisodeIndicator(true);
+                }
               }
             }}
             hasNextEpisode={!!nextEpisodeId}
-            episodes={episodes}
             episodeId={episodeId}
-          />
-          {/* <Player
+            episodes={episodes}
+          /> */}
+          {/* <MuxPlayer
             ref={playerRef}
             className={cn(
               "aspect-video rounded-lg overflow-hidden object-cover",
@@ -215,6 +274,11 @@ export const VideoPlayer = ({
             onEnded={onEnd}
             onTimeUpdate={onTimeUpdate}
             onLoadStart={() => setIsLoaded(true)}
+            onError={() => {
+              setPlaybackError(true);
+              // Show error message after a loading delay
+              setTimeout(() => setShowError(true), 2000);
+            }}
             streamType="on-demand"
             autoPlay
             muted

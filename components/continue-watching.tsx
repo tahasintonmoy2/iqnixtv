@@ -57,14 +57,25 @@ export function ContinueWatching({}: ContinueWatchingProps) {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {[...Array(8)].map((_, i) => (
-          <div key={i} className="animate-pulse">
-            <div className="aspect-video rounded-lg mb-3"></div>
-            <div className="h-4 rounded mb-2"></div>
-            <div className="h-3 rounded"></div>
-          </div>
-        ))}
+      <div>
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 contin-watch-mobn">
+          {[...Array(2)].map((_, i) => (
+            <div key={i} className="animate-pulse">
+              <div className="aspect-video rounded-lg mb-3 bg-muted"></div>
+              <div className="h-4 rounded mb-2 bg-muted"></div>
+              <div className="h-3 rounded bg-muted"></div>
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 contin-watch">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="animate-pulse">
+              <div className="aspect-video rounded-lg mb-3 bg-muted"></div>
+              <div className="h-4 rounded mb-2 bg-muted"></div>
+              <div className="h-3 rounded bg-muted"></div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -72,7 +83,7 @@ export function ContinueWatching({}: ContinueWatchingProps) {
   if (error) {
     return (
       <div className="flex max-w-96 items-center font-medium p-2 border text-red-600 border-red-500 bg-red-800/35 rounded-sm">
-        <ExclamationTriangleIcon className="mr-2 h-5 w-5" />
+        <ExclamationTriangleIcon className="mr-2 size-5" />
         <p>Failed to load your watch history.</p>
       </div>
     );
@@ -80,7 +91,7 @@ export function ContinueWatching({}: ContinueWatchingProps) {
 
   if (!user) {
     return (
-      <div className="text-center py-8 w-full">
+      <div className="text-center w-full">
         <p className="text-muted-foreground bg-background lg:rounded-t-lg rounded-lg py-4">
           Please sign in to view your watch history.
         </p>
@@ -90,7 +101,7 @@ export function ContinueWatching({}: ContinueWatchingProps) {
 
   if (history.length === 0) {
     return (
-      <div className="text-center py-8">
+      <div className="text-center py-4">
         <p className="bg-background lg:rounded-t-lg rounded-lg py-4">
           No watching history yet. Start watching some videos!
         </p>

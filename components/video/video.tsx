@@ -3,10 +3,17 @@
 import { Slider } from "@/components/ui/slider";
 import { useMobile } from "@/hooks/use-mobile";
 import { useVideoSettingsModal } from "@/hooks/use-video-settings-modal";
+import { BufferManager } from "@/lib/buffer-manager";
 import { Episode } from "@/lib/generated/prisma";
-import { cn } from "@/lib/utils";
+import { cn, formatTime } from "@/lib/utils";
+import {
+  parseVideoError,
+  VideoErrorType,
+  type VideoError,
+} from "@/lib/video-player-utils";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
+  AlertTriangle,
   ChevronLeft,
   Clock,
   ClosedCaption,
@@ -27,14 +34,25 @@ import {
   VolumeX,
 } from "lucide-react";
 import Image from "next/image";
-import type React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { MdOutlineRecordVoiceOver } from "react-icons/md";
 import shaka from "shaka-player/dist/shaka-player.compiled.js";
 import { useEventListener } from "usehooks-ts";
+import videojs from "video.js";
+import type Player from "video.js/dist/types/player";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+//@ts-ignore
+import "video.js/dist/video-js.css";
 import { PauseIcon } from "../icons";
 import { VideoSettingsModal } from "../models/video-settings-modal";
 import { Button } from "../ui/button";
+import { LoadingSpinner } from "./loading-spinner";
 
 // Video playlist type
 interface VideoProps {
@@ -46,11 +64,22 @@ interface VideoProps {
   onLoadStart: () => void;
   description?: string;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
-  onEnded?: () => void;
-  initialSeek?: number;
+  onEnded: () => void;
+  autoplay?: boolean;
+  onReady?: (player: Player) => void;
+  onError: (error: VideoError) => void;
+  onQualityChange?: (quality: string) => void;
   episodes: Episode[];
   episodeId: string;
   hasNextEpisode?: boolean;
+}
+
+interface QualityOption {
+  id: number;
+  label: string;
+  height: number;
+  bandwidth: number;
+  isAuto: boolean;
 }
 
 export const Video = ({
@@ -61,28 +90,37 @@ export const Video = ({
   episodes,
   episodeId,
   hasNextEpisode = false,
+  onReady,
+  onError,
   onCanPlay,
   onLoadStart,
   onTimeUpdate,
-  initialSeek,
 }: VideoProps) => {
-  type ShakaErrorEvent = { detail?: { code?: number } };
   // Video state
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const bufferManagerRef = useRef<BufferManager | null>(null);
+  const bufferCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const [isPlaying, setIsPlaying] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
-  const [isHover, setIsHover] = useState(false);
-  const [isContentVisible, setIsContentVisible] = useState(false);
+  const [bufferingProgress, setBufferingProgress] = useState(0);
+  const [isPlayerReady, setIsPlayerReady] = useState(false);
+  const [qualities, setQualities] = useState<QualityOption[]>([]);
+  const [selectedQuality, setSelectedQuality] = useState<QualityOption | null>(
+    null
+  );
+  const [error, setError] = useState<VideoError | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showControls, setShowControls] = useState(true);
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [isControlsInteraction, setIsControlsInteraction] = useState(false);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [isAdjustingVolume, setIsAdjustingVolume] = useState(false);
-
   const [isPictureInPicture, setIsPictureInPicture] = useState(false);
   const [pipSupported, setPipSupported] = useState(false);
 
@@ -107,7 +145,10 @@ export const Video = ({
     { time: number; dataUrl: string }[]
   >([]);
   const [showThumbnail, setShowThumbnail] = useState(false);
-  const [thumbnailPosition, setThumbnailPosition] = useState({ x: 0, time: 0 });
+  const [thumbnailPosition, setThumbnailPosition] = useState({
+    x: 0,
+    time: 0,
+  });
   const [thumbnailsGenerated, setThumbnailsGenerated] = useState(false);
 
   // Settings state
@@ -121,16 +162,12 @@ export const Video = ({
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const isMobile = useMobile();
   const { onOpen } = useVideoSettingsModal();
-  const [quality, setQuality] = useState("auto");
 
-  // Local UI flags for progress interactions (kept for future use)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isDraggingProgress, setIsDraggingProgress] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [hoverProgress, setHoverProgress] = useState<number | null>(null);
   const progressContainerRef = useRef<HTMLDivElement>(null);
-  const controlsTimeoutRef = useRef<NodeJS.Timeout>(null);
-  const playerRef = useRef<InstanceType<typeof shaka.Player> | null>(null);
+  const playerRef = useRef<Player | null>(null);
+  const vplayerRef = useRef<InstanceType<typeof shaka.Player> | null>(null);
 
   // Keyboard control state
   const [showVolumeIndicator, setShowVolumeIndicator] = useState(false);
@@ -143,16 +180,14 @@ export const Video = ({
 
   // Function declarations first
   const togglePlay = useCallback(() => {
-    if (!videoRef.current) return;
-
-    if (videoRef.current.paused) {
-      videoRef.current.play();
-      setIsPlaying(true);
-    } else {
-      videoRef.current.pause();
-      setIsPlaying(false);
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play();
+      }
     }
-  }, []);
+  }, [isPlaying]);
 
   const togglePictureInPicture = useCallback(async () => {
     const video = videoRef.current;
@@ -168,16 +203,6 @@ export const Video = ({
       console.error("Error toggling picture-in-picture:", error);
     }
   }, [pipSupported]);
-
-  const qualityOptions = [
-    { value: "2160", label: "2160p", badge: "4K" },
-    { value: "1440", label: "1440p", badge: "HD" },
-    { value: "1080", label: "1080p", badge: "HD" },
-    { value: "720", label: "720p", badge: "" },
-    { value: "480", label: "480p", badge: "" },
-    { value: "360", label: "360p", badge: "" },
-    { value: "auto", label: "Auto", badge: "" },
-  ];
 
   const speedOptions = [
     { value: 0.25, label: "0.25x" },
@@ -325,38 +350,253 @@ export const Video = ({
     },
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const playlistItemVariants = {
-    hidden: { opacity: 0, x: -20 },
-    visible: (i: number) => ({
-      opacity: 1,
-      x: 0,
-      transition: {
-        delay: i * 0.05,
-        duration: 0.2,
-      },
-    }),
-    exit: { opacity: 0, x: -20, transition: { duration: 0.1 } },
+  const updateQualityDisplay = useCallback(() => {
+    if (!vplayerRef.current) return;
+
+    const tracks = vplayerRef.current.getVariantTracks();
+    const activeTrack = tracks.find((track) => track.active);
+
+    if (activeTrack && selectedQuality?.isAuto) {
+      const currentQuality = qualities.find(
+        (q) => q.height === activeTrack.height
+      );
+      if (currentQuality) {
+        setSelectedQuality({
+          ...qualities[0],
+          label: `Auto (${activeTrack.height})`,
+        });
+      }
+    }
+  }, [qualities, selectedQuality]);
+
+  const updateAvailableQualities = useCallback(() => {
+    try {
+      if (!vplayerRef.current || !isPlayerReady) {
+        console.log("Player not ready for quality update");
+        return;
+      }
+
+      const tracks = vplayerRef.current.getVariantTracks();
+
+      if (!tracks || tracks.length === 0) {
+        console.log("No variant tracks available");
+        return;
+      }
+
+      const uniqueTracks = tracks
+        .filter(
+          (track, index, self) =>
+            track.height && // Ensure track has height property
+            index === self.findIndex((t) => t.height === track.height)
+        )
+        .sort((a, b) => b.height - a.height);
+
+      if (uniqueTracks.length === 0) {
+        console.log("No valid quality tracks found");
+        return;
+      }
+
+      const qualityOptions: QualityOption[] = [
+        {
+          id: -1,
+          label: "Auto",
+          height: 0,
+          bandwidth: 0,
+          isAuto: true,
+        },
+        ...uniqueTracks.map((track) => ({
+          id: track.id,
+          label: `${track.height}p`,
+          height: track.height,
+          bandwidth: track.bandwidth,
+          isAuto: false,
+        })),
+      ];
+
+      setQualities(qualityOptions);
+      setSelectedQuality(qualityOptions[0]);
+    } catch (error) {
+      console.error("Error updating qualities:", error);
+    }
+  }, [isPlayerReady]);
+
+  // Initialize video.js player
+  useEffect(() => {
+    if (!videoRef.current || !playbackId) {
+      console.warn("Video element or playbackId not available");
+      return;
+    }
+
+    try {
+      const player = videojs(videoRef.current, {
+        controls: false, // Use custom controls
+        autoplay: true,
+        preload: "auto",
+        fluid: true,
+        html5: {
+          vhs: {
+            overrideNative: !videojs.browser.IS_SAFARI,
+            enableLowInitialPlaylist: true,
+            smoothQualityChange: true,
+            fastQualityChange: true,
+          },
+          nativeVideoTracks: false,
+          nativeAudioTracks: false,
+          nativeTextTracks: false,
+        },
+        sources: [
+          {
+            src: `https://stream.mux.com/${playbackId}.m3u8`,
+            type: "application/x-mpegURL",
+            withCredentials: false,
+          },
+        ],
+        poster: thumbnail,
+        playbackRates: [0.5, 0.75, 1, 1.25, 1.5, 2],
+      });
+
+      playerRef.current = player;
+
+      // Add error handler
+      const handleError = () => {
+        const playerError = player.error();
+        const parsedError = parseVideoError(playerError);
+        setError(parsedError);
+        setIsLoading(false);
+        onError?.(parsedError);
+      };
+
+      const handleReady = () => {
+        setIsPlayerReady(true);
+        setIsLoading(false);
+        onReady?.(player);
+      };
+
+      const handlePlay = () => setIsPlaying(true);
+      const handlePause = () => setIsPlaying(false);
+      const handleTimeUpdate = () => setCurrentTime(player.currentTime() || 0);
+      const handleDurationChange = () => setDuration(player.duration() || 0);
+      const handleVolumeChange = () => setVolume(player.volume() || 0);
+      const handleMute = () => setIsMuted(player.muted() || false);
+      const handleUnmute = () => setIsMuted(player.muted() || false);
+
+      const handleLoadstart = () => setIsLoading(true);
+      const handleCanplay = () => setIsLoading(false);
+
+      player.on("ready", handleReady);
+      player.on("play", handlePlay);
+      player.on("pause", handlePause);
+      player.on("timeupdate", handleTimeUpdate);
+      // player.on("durationchange", handleDurationChange);
+      // player.on("volumechange", handleVolumeChange);
+      // player.on("mute", handleMute);
+      // player.on("unmute", handleUnmute);
+      player.on("error", handleError);
+      player.on("loadstart", handleLoadstart);
+      player.on("canplay", handleCanplay);
+
+      return () => {
+        player.off("ready", handleReady);
+        player.off("play", handlePlay);
+        player.off("pause", handlePause);
+        player.off("timeupdate", handleTimeUpdate);
+        player.off("durationchange", handleDurationChange);
+        player.off("volumechange", handleVolumeChange);
+        player.off("mute", handleMute);
+        player.off("unmute", handleUnmute);
+        player.off("error", handleError);
+        player.dispose();
+        player.off("loadstart", handleLoadstart);
+        player.off("canplay", handleCanplay);
+      };
+    } catch (error) {
+      console.error("Error initializing video player:", error);
+      const videoError: VideoError = {
+        type: VideoErrorType.PLAYBACK,
+        code: 3, // Using a number for the error code
+        message: "Failed to initialize video player",
+        originalError:
+          error instanceof Error ? error : new Error("Unknown error"),
+      };
+      setError(videoError);
+      setIsLoading(false);
+      onError?.(videoError);
+    }
+  }, [playbackId, thumbnail, onError, onReady]);
+
+  useEffect(() => {
+    if (!videoRef.current || !bufferManagerRef.current) return;
+
+    bufferCheckIntervalRef.current = setInterval(() => {
+      bufferManagerRef.current?.checkBufferingStatus();
+      const state = bufferManagerRef.current?.getBufferState();
+      if (state) {
+        setBufferingProgress(state.bufferingProgress);
+      }
+    }, 500);
+
+    return () => {
+      if (bufferCheckIntervalRef.current) {
+        clearInterval(bufferCheckIntervalRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+
+    if (isPlaying) {
+      hideTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+    } else {
+      setShowControls(true);
+    }
+
+    return () => {
+      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+    };
+  }, [isPlaying]);
+
+  const selectQuality = (quality: QualityOption) => {
+    if (!vplayerRef.current) return;
+
+    if (quality.isAuto) {
+      // Enable ABR
+      vplayerRef.current.configure({
+        abr: {
+          enabled: true,
+        },
+      });
+      setSelectedQuality(quality);
+    } else {
+      // Disable ABR and select specific quality
+      vplayerRef.current.configure({
+        abr: {
+          enabled: false,
+        },
+      });
+
+      const tracks = vplayerRef.current.getVariantTracks();
+      const track = tracks.find((t) => t.height === quality.height);
+
+      if (track) {
+        vplayerRef.current.selectVariantTrack(track, true);
+        setSelectedQuality(quality);
+      }
+    }
   };
 
-  // Playlist functions
-  const initializeNativePlayback = useCallback(
-    (videoElement: HTMLVideoElement) => {
-      if (playerRef.current) {
-        playerRef.current.destroy();
-        playerRef.current = null;
-      }
+  const handleMouseMove = () => {
+    setShowControls(true);
+    if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
 
-      try {
-        // Try HLS first
-        videoElement.src = `https://stream.mux.com/${playbackId}.m3u8`;
-      } catch (error) {
-        console.error("Native HLS playback failed:", error);
-        videoElement.src = `https://stream.mux.com/${playbackId}/medium.mp4`;
-      }
-    },
-    [playbackId]
-  );
+    if (isPlaying) {
+      hideTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+    }
+  };
 
   const playVideo = useCallback(
     async (targetEpisodeId: string) => {
@@ -365,67 +605,12 @@ export const Video = ({
       const episode = episodes.find((ep: Episode) => ep.id === targetEpisodeId);
       if (!episode) return;
 
-      const video = videoRef.current;
-      const player = playerRef.current;
-      if (!video) return;
-
-      const wasPlaying = !video.paused;
-      const currentVolume = video.volume;
-      const wasMuted = video.muted;
-
       // Reset states
       setCurrentTime(0);
       setThumbnailsGenerated(false);
       setThumbnails([]);
-
-      try {
-        // Clean up existing player if it exists
-        if (player) {
-          await player.destroy();
-          playerRef.current = null;
-        }
-
-        // Try Shaka Player first
-        try {
-          if (shaka.Player.isBrowserSupported()) {
-            const newPlayer = new shaka.Player(video);
-            playerRef.current = newPlayer;
-
-            // Configure error handlers before loading
-            newPlayer.addEventListener("error", (error) => {
-              console.error("Shaka player error:", error);
-              initializeNativePlayback(video);
-            });
-
-            await newPlayer.load(`https://stream.mux.com/${playbackId}.m3u8`);
-          } else {
-            initializeNativePlayback(video);
-          }
-        } catch (error) {
-          console.error("Video playback initialization failed:", error);
-          initializeNativePlayback(video);
-        }
-
-        // Restore video state
-        video.currentTime = 0;
-        video.volume = currentVolume;
-        video.muted = wasMuted;
-
-        if (wasPlaying) {
-          try {
-            await video.play();
-            setIsPlaying(true);
-          } catch (playError) {
-            console.warn("Failed to resume playback:", playError);
-            setIsPlaying(false);
-          }
-        }
-      } catch (error) {
-        console.error("Error during video transition:", error);
-        setIsPlaying(false);
-      }
     },
-    [playbackId, episodes, initializeNativePlayback]
+    [playbackId, episodes]
   );
 
   const playNext = useCallback(() => {
@@ -522,7 +707,6 @@ export const Video = ({
       x: Math.min(Math.max(x, 80), rect.width - 80),
       time,
     });
-    setHoverProgress(percentage);
     setShowThumbnail(true);
   };
 
@@ -569,179 +753,12 @@ export const Video = ({
     setTimeout(() => setShowSeekIndicator(false), 1000);
   };
 
-  useEffect(() => {
-    if (!videoRef.current || !playbackId) return;
-
-    const video = videoRef.current;
-    const src = `https://stream.mux.com/${playbackId}.m3u8`;
-
-    // Install polyfills
-    shaka.polyfill.installAll();
-
-    async function initPlayer() {
-      // If Shaka not supported, fallback to native HLS
-      if (!shaka.Player.isBrowserSupported()) {
-        console.warn(
-          "Shaka not supported in this browser. Falling back to native HLS."
-        );
-        video.src = src;
-        if (typeof initialSeek === "number" && initialSeek > 0) {
-          video.currentTime = initialSeek;
-        }
-        onCanPlay();
-        return;
-      }
-
-      try {
-        // Store current state before destroying player
-        const currentTime = video.currentTime;
-        const wasPlaying = !video.paused;
-
-        // Only reinitialize if necessary
-        if (playerRef.current) {
-          try {
-            await playerRef.current.load(src);
-            // Restore state
-            video.currentTime = currentTime;
-            if (wasPlaying) video.play();
-            return;
-          } catch (error) {
-            console.warn("Failed to reuse player, reinitializing:", error);
-            playerRef.current.destroy();
-          }
-        }
-
-        const player = new shaka.Player(video);
-        playerRef.current = player as InstanceType<typeof shaka.Player>;
-
-        // Conservative, resilient streaming config
-        player.configure({
-          streaming: {
-            bufferingGoal: 30,
-            rebufferingGoal: 15,
-            bufferBehind: 30,
-            useNativeHlsOnSafari: true,
-            retryParameters: {
-              maxAttempts: 5,
-              baseDelay: 1000,
-              backoffFactor: 2,
-              fuzzFactor: 0.5,
-              timeout: 30000,
-            },
-            stallThreshold: 1,
-            stallSkip: 0.1,
-          },
-          manifest: {
-            retryParameters: {
-              maxAttempts: 5,
-              baseDelay: 1000,
-              backoffFactor: 2,
-              timeout: 30000,
-            },
-          },
-          drm: { servers: {} },
-        } as unknown as Parameters<typeof player.configure>[0]);
-
-        // Listen for errors
-        player.addEventListener("error", (event: ShakaErrorEvent) => {
-          console.error("Shaka error", event.detail);
-        });
-
-        // Load the HLS manifest
-        await player.load(src);
-
-        // Restore saved state or use initial seek
-        if (currentTime > 0) {
-          video.currentTime = currentTime;
-          if (wasPlaying) video.play();
-        } else if (typeof initialSeek === "number" && initialSeek > 0) {
-          video.currentTime = initialSeek;
-        }
-
-        onCanPlay();
-      } catch (error) {
-        console.error("Shaka failed, falling back to native HLS:", error);
-        try {
-          // Fallback to native
-          video.src = src;
-          if (typeof initialSeek === "number" && initialSeek > 0) {
-            video.currentTime = initialSeek;
-          }
-          onCanPlay();
-        } catch (fallbackError) {
-          console.error("Native HLS fallback failed:", fallbackError);
-        }
-      }
-    }
-
-    initPlayer();
-
-    // Cleanup
-    return () => {
-      try {
-        if (playerRef.current) {
-          playerRef.current.destroy();
-          playerRef.current = null;
-        }
-        // Clean up video element
-        if (video) {
-          video.removeAttribute("src");
-          video.load();
-        }
-      } catch (error) {
-        console.warn("Error during player cleanup:", error);
-      }
-    };
-  }, [playbackId, initialSeek, onCanPlay]);
-
-  useEffect(() => {
-    const resetControlsTimeout = () => {
-      if (controlsTimeoutRef.current) {
-        clearTimeout(controlsTimeoutRef.current);
-        controlsTimeoutRef.current = null;
-      }
-    };
-
-    const startHideTimer = (delay: number) => {
-      resetControlsTimeout();
-      if (isPlaying && !isControlsInteraction) {
-        controlsTimeoutRef.current = setTimeout(() => {
-          // Only hide if still playing and not interacting
-          if (isPlaying && !isControlsInteraction) {
-            setIsContentVisible(false);
-          }
-        }, delay);
-      }
-    };
-
-    // Show controls in these cases
-    const shouldShowControls =
-      !isPlaying || // Always show when paused
-      isControlsInteraction || // Show while interacting with controls
-      (isFullscreen && isMobile) || // Show in mobile fullscreen
-      isHover; // Show on hover
-
-    if (shouldShowControls) {
-      setIsContentVisible(true);
-      resetControlsTimeout();
-
-      // Start hide timer only if playing and not interacting
-      if (isPlaying && !isControlsInteraction) {
-        startHideTimer(isFullscreen ? 3500 : 2000);
-      }
-    } else {
-      startHideTimer(2000);
-    }
-
-    return resetControlsTimeout;
-  }, [isHover, isPlaying, isFullscreen, isMobile, isControlsInteraction]);
-
   const lockOrientationToLandscape = useCallback(async () => {
     if (!isMobile || !screen?.orientation) return;
 
     try {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      //@ts-expect-error
+      //@ts-ignore
       await screen.orientation.lock("landscape");
     } catch (error) {
       // Silently fail - orientation lock is not critical
@@ -780,50 +797,6 @@ export const Video = ({
     };
   }, [isMobile]);
 
-  // Handle fullscreen
-  // Handle touch events for mobile controls
-
-  // Handle touch events for mobile controls
-  const handleVideoTouch = useCallback(
-    (e: React.TouchEvent) => {
-      if (!isMobile) return;
-
-      // Check if the touch target is a control button or slider
-      const target = e.target as HTMLElement;
-      const isControlElement = target.closest('button, input, [role="slider"]');
-
-      const resetControlsTimeout = () => {
-        if (controlsTimeoutRef.current) {
-          clearTimeout(controlsTimeoutRef.current);
-          controlsTimeoutRef.current = null;
-        }
-      };
-
-      if (isControlElement) {
-        // If touching a control, keep controls visible and mark as interacting
-        setIsControlsInteraction(true);
-        setIsContentVisible(true);
-        resetControlsTimeout();
-      } else {
-        // If touching the video area, toggle controls visibility
-        setIsContentVisible((prev) => !prev);
-        resetControlsTimeout();
-
-        // Start a new hide timer if playing
-        if (isPlaying) {
-          controlsTimeoutRef.current = setTimeout(
-            () => {
-              setIsContentVisible(false);
-              setIsControlsInteraction(false);
-            },
-            isFullscreen ? 3500 : 2000
-          );
-        }
-      }
-    },
-    [isMobile, isPlaying, isFullscreen]
-  );
-
   const toggleFullscreen = useCallback(async () => {
     try {
       if (isFullscreen) {
@@ -841,22 +814,31 @@ export const Video = ({
     }
   }, [isFullscreen]);
 
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === "f") {
-        e.preventDefault();
-        toggleFullscreen();
-      }
-    };
-
-    document.addEventListener("keydown", down);
-    return () => document.removeEventListener("keydown", down);
-  }, [toggleFullscreen]);
-
   const handleFullScreenChange = () => {
     const isCurrentlyFullScreen = document.fullscreenElement !== null;
     setIsFullscreen(isCurrentlyFullScreen);
   };
+
+  // Video event handlers
+  const handlePlay = useCallback(() => {
+    setIsPlaying(true);
+  }, []);
+
+  const handlePause = useCallback(() => {
+    setIsPlaying(false);
+  }, []);
+
+  const handleTimeUpdate = useCallback(() => {
+    if (videoRef.current) {
+      setCurrentTime(videoRef.current.currentTime);
+    }
+  }, []);
+
+  const handleLoadedMetadata = useCallback(() => {
+    if (videoRef.current) {
+      setDuration(videoRef.current.duration);
+    }
+  }, []);
 
   useEventListener(
     "fullscreenchange" as unknown as keyof WindowEventMap,
@@ -927,18 +909,10 @@ export const Video = ({
           setTimeout(() => setShowVolumeIndicator(false), 1500);
           break;
         case "ArrowLeft":
-          if (e.shiftKey) {
-            playPrevious();
-          } else {
-            seekBackward(10);
-          }
+          seekBackward(10);
           break;
         case "ArrowRight":
-          if (e.shiftKey) {
-            playNext();
-          } else {
-            seekForward(10);
-          }
+          seekForward(10);
           break;
         case "KeyP":
           if (pipSupported) {
@@ -966,8 +940,6 @@ export const Video = ({
     pipSupported,
     duration,
     showPlaylist,
-    playNext,
-    playPrevious,
     seekForward,
     togglePictureInPicture,
     togglePlay,
@@ -1005,15 +977,6 @@ export const Video = ({
       setDuration(video.duration);
     };
 
-    const onEnded = () => {
-      setIsPlaying(false);
-
-      // Only auto-advance if there's a next episode available
-      if (hasNextEpisode) {
-        playNext();
-      }
-    };
-
     // Check PiP support
     if ("pictureInPictureEnabled" in document) {
       setPipSupported(true);
@@ -1031,7 +994,6 @@ export const Video = ({
     video.addEventListener("pause", onPause);
     video.addEventListener("timeupdate", handleTimeUpdate);
     video.addEventListener("loadedmetadata", onLoadedMetadata);
-    video.addEventListener("ended", onEnded);
     video.addEventListener("enterpictureinpicture", onEnterPiP);
     video.addEventListener("leavepictureinpicture", onLeavePiP);
 
@@ -1040,18 +1002,10 @@ export const Video = ({
       video.removeEventListener("pause", onPause);
       video.removeEventListener("timeupdate", handleTimeUpdate);
       video.removeEventListener("loadedmetadata", onLoadedMetadata);
-      video.removeEventListener("ended", onEnded);
       video.removeEventListener("enterpictureinpicture", onEnterPiP);
       video.removeEventListener("leavepictureinpicture", onLeavePiP);
     };
-  }, [playNext, onTimeUpdate, hasNextEpisode]);
-
-  // Generate thumbnails when video loads
-  useEffect(() => {
-    if (duration > 0 && !thumbnailsGenerated) {
-      generateThumbnails();
-    }
-  }, [duration, thumbnailsGenerated, generateThumbnails]);
+  }, [onTimeUpdate, hasNextEpisode]);
 
   // Update video playback when state changes
   useEffect(() => {
@@ -1069,6 +1023,13 @@ export const Video = ({
     }
   }, [isPlaying]);
 
+  // Generate thumbnails when video loads
+  useEffect(() => {
+    if (duration > 0 && !thumbnailsGenerated) {
+      generateThumbnails();
+    }
+  }, [duration, thumbnailsGenerated, generateThumbnails]);
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -1082,47 +1043,6 @@ export const Video = ({
 
     video.playbackRate = playbackSpeed;
   }, [playbackSpeed]);
-
-  // Update video source when playbackId changes
-  useEffect(() => {
-    if (!playbackId) return;
-    const src = `https://stream.mux.com/${playbackId}.m3u8`;
-    const player = playerRef.current;
-    const video = videoRef.current;
-
-    // Ensure initial playback speed is set to 1x
-    if (video) {
-      video.playbackRate = 1;
-      setPlaybackSpeed(1);
-    }
-
-    if (player) {
-      player.load(src).catch((e: unknown) => {
-        console.error(
-          "Error loading new playbackId with Shaka, fallback to native:",
-          e
-        );
-        if (video) {
-          video.src = src;
-        }
-      });
-    } else if (video) {
-      // If no Shaka player (unsupported), use native
-      video.src = src;
-    }
-  }, [playbackId]);
-
-  // Format time (seconds to MM:SS)
-  function formatTime(time: number) {
-    const hours = Math.floor(time / 3600);
-    const minutes = Math.floor((time % 3600) / 60);
-    const seconds = Math.floor(time % 60);
-
-    if (hours > 0) {
-      return `${hours}:${minutes < 10 ? "0" : ""}${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
-    }
-    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
-  }
 
   // Handle progress bar interaction
   const handleProgressChange = (value: number[]) => {
@@ -1172,22 +1092,43 @@ export const Video = ({
       <div
         ref={containerRef}
         className={cn(
-          "relative w-full max-w-6xl mx-auto overflow-hidden rounded-lg transition-all duration-1000",
+          "relative w-full max-w-6xl h-[31.6rem] mx-auto overflow-hidden rounded-lg transition-all duration-1000",
           isFullscreen && isMobile && "h-screen w-screen max-w-none"
         )}
-        onMouseEnter={() => setIsHover(true)}
-        onMouseLeave={() => setIsHover(false)}
-        onTouchStart={handleVideoTouch}
-        onTouchEnd={() => {
-          // Reset control interaction state after a short delay
-          setTimeout(() => setIsControlsInteraction(false), 300);
-        }}
       >
+        {isLoading && <LoadingSpinner />}
+        {/* Error State */}
+        {error && (
+          <div
+            className="inset-0 h-[32rem] flex items-center justify-center bg-black/40 backdrop-blur-lg rounded-md"
+            style={{
+              backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url(${thumbnail})`,
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "center",
+              backgroundSize: "cover",
+            }}
+          >
+            <div className="flex flex-col items-center p-6">
+              <div className="flex items-center justify-center size-16 rounded-full bg-destructive/10 mb-2">
+                <AlertTriangle className="size-8 text-destructive" />
+              </div>
+              <p className="text-red-500 text-lg font-semibold mb-2">
+                Playback Error
+              </p>
+              <p className="text-gray-300 text-sm mb-4">{error.message}</p>
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-4">
           {/* Playlist sidebar */}
 
           {/* Video player */}
-          <div className="flex-1">
+          <div
+            className="flex-1"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={() => isPlaying && setShowControls(false)}
+          >
             {/* Video title */}
             <motion.div
               className="mb-4"
@@ -1210,9 +1151,13 @@ export const Video = ({
             >
               <video
                 ref={videoRef}
-                className="w-full h-full rounded-lg"
+                className="w-full h-full rounded-lg video-js vjs-default-skin"
                 poster={thumbnail}
                 onClick={togglePlay}
+                onPlay={handlePlay}
+                onPause={handlePause}
+                onTimeUpdate={handleTimeUpdate}
+                onLoadedMetadata={handleLoadedMetadata}
                 onCanPlay={onCanPlay}
                 onLoadStart={onLoadStart}
                 playsInline
@@ -1306,7 +1251,7 @@ export const Video = ({
               </AnimatePresence>
 
               {/* Controls overlay */}
-              {isContentVisible && (
+              {showControls && (
                 <motion.div
                   className="absolute inset-x-0 z-10 bottom-0"
                   variants={controlsVariants}
@@ -1374,22 +1319,6 @@ export const Video = ({
                       }}
                       className="w-full cursor-pointer [&>span:first-child]:h-1 [&>span:first-child]:bg-white/30 [&_[role=slider]]:bg-violet-500 [&_[role=slider]]:w-3 [&_[role=slider]]:h-3 [&_[role=slider]]:border-0 [&>span:first-child_span]:bg-violet-500 [&_[role=slider]:focus-visible]:ring-0 [&_[role=slider]:focus-visible]:ring-offset-0 [&_[role=slider]:focus-visible]:scale-105 [&_[role=slider]:focus-visible]:transition-transform"
                     />
-
-                    {/* Progress markers */}
-                    <div className="absolute top-1/2 left-0 w-full h-1 -translate-y-1/2 pointer-events-none">
-                      {duration > 60 &&
-                        Array.from({ length: Math.floor(duration / 60) }).map(
-                          (_, i) => (
-                            <div
-                              key={i}
-                              className="absolute top-0 w-px h-1 bg-white/30"
-                              style={{
-                                left: `${(((i + 1) * 60) / duration) * 100}%`,
-                              }}
-                            />
-                          )
-                        )}
-                    </div>
                   </div>
 
                   {/* Control buttons */}
@@ -1422,8 +1351,8 @@ export const Video = ({
                       >
                         {!isMobile && (
                           <motion.button
-                            onClick={playPrevious}
                             className="py-1.5 px-3 text-white rounded-full hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed mr-2"
+                            onClick={playPrevious}
                             title="Previous video"
                             disabled={!canGoPrevious}
                           >
@@ -1433,8 +1362,8 @@ export const Video = ({
 
                         {!isMobile && (
                           <motion.button
-                            onClick={playNext}
                             className="py-1.5 px-3 text-white rounded-full hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={playNext}
                             disabled={!canGoNext}
                             title="Next video"
                           >
@@ -1774,64 +1703,67 @@ export const Video = ({
                                   <Settings2 className="size-6" />
                                   <span className="text-sm">Quality</span>
                                 </div>
-                                <div className="flex items-center gap-1 text-sm text-neutral-400">
-                                  <span>
-                                    {quality === "auto"
-                                      ? "Auto (480p)"
-                                      : `${quality}p`}
-                                  </span>
-                                  <ChevronLeft className="w-4 h-4 rotate-180" />
-                                </div>
+                                {isPlayerReady && qualities.length > 0 && (
+                                  <div className="flex items-center gap-1 text-sm text-neutral-400">
+                                    <span>{selectedQuality?.label}</span>
+                                    <ChevronLeft className="w-4 h-4 rotate-180" />
+                                  </div>
+                                )}
                               </motion.button>
                             </LayoutGroup>
                           </motion.div>
                         )}
 
                         {/* Quality settings view */}
-                        {settingsView === "quality" && (
-                          <motion.div
-                            key="quality"
-                            className="p-1"
-                            custom={1}
-                            variants={settingsViewVariants}
-                            initial="enter"
-                            animate="center"
-                            exit="exit"
-                            layout
-                          >
-                            <LayoutGroup>
-                              {qualityOptions.map((option, index) => (
-                                <motion.button
-                                  key={option.value}
-                                  onClick={() => {
-                                    setQuality(option.value);
-                                    navigateTo("main");
-                                  }}
-                                  className={cn(
-                                    "w-full flex items-center justify-between p-3 hover:bg-white/15 rounded-lg",
-                                    quality === option.value && "bg-white/15"
-                                  )}
-                                  variants={menuItemVariants}
-                                  initial="hidden"
-                                  animate="visible"
-                                  custom={index}
-                                  whileTap={{ scale: 0.98 }}
-                                  layout
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm">
-                                      {option.label}
-                                    </span>
-                                    {option.badge && (
-                                      <span className="text-xs text-neutral-400">
-                                        {option.badge}
-                                      </span>
-                                    )}
-                                  </div>
-                                </motion.button>
-                              ))}
-                            </LayoutGroup>
-                          </motion.div>
+                        {isPlayerReady && qualities.length > 0 && (
+                          <>
+                            {settingsView === "quality" && (
+                              <motion.div
+                                key="quality"
+                                className="p-1"
+                                custom={1}
+                                variants={settingsViewVariants}
+                                initial="enter"
+                                animate="center"
+                                exit="exit"
+                                layout
+                              >
+                                <LayoutGroup>
+                                  {qualities.map((quality) => (
+                                    <motion.button
+                                      key={quality.id}
+                                      onClick={() => {
+                                        selectQuality(quality);
+                                        navigateTo("main");
+                                      }}
+                                      className={cn(
+                                        "w-full flex items-center justify-between p-3 hover:bg-white/15 rounded-lg",
+                                        selectedQuality?.id === quality.id &&
+                                          "bg-white/15"
+                                      )}
+                                      variants={menuItemVariants}
+                                      initial="hidden"
+                                      animate="visible"
+                                      custom={quality.id}
+                                      whileTap={{ scale: 0.98 }}
+                                      layout
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-sm">
+                                          {quality.label}
+                                        </span>
+                                        {/* {option.badge && (
+                                          <span className="text-xs text-neutral-400">
+                                            {option.badge}
+                                          </span>
+                                        )} */}
+                                      </div>
+                                    </motion.button>
+                                  ))}
+                                </LayoutGroup>
+                              </motion.div>
+                            )}
+                          </>
                         )}
 
                         {/* Playback speed view */}

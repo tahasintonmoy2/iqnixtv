@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRelatedContent } from "@/hooks/use-related-content";
 import { Episode, Season, Series } from "@/lib/generated/prisma";
@@ -100,7 +99,12 @@ export function RelatedContent({
       <div
         ref={containerRef}
         className="flex overflow-hidden scrollbar-hide gap-4 py-4 px-2"
-        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        style={{
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+          scrollBehavior: "smooth",
+          overflow: "hidden",
+        }}
       >
         {content.length === 0 ? (
           <div className="flex flex-col items-center justify-center w-full py-8 text-center">
@@ -129,29 +133,22 @@ export function RelatedContent({
                       : `/drama/${item.id}`
                     : `/movie/${item.id}`
                 }
-                className="flex-shrink-0 w-[140px]"
+                className="flex-shrink-0 w-[140px] overflow-hidden"
               >
-                <Card className="overflow-hidden bg-transparent border-0 gap-3 w-[140px] group/card">
-                  <div className="relative">
+                <div className="gap-3 w-[140px]">
+                  <div className="overflow-hidden relative rounded">
                     <Image
                       src={item.thumbnailImageUrl || "/placeholder.svg"}
                       alt={item.name}
                       width={500}
                       height={185}
-                      className="object-cover h-[185px] rounded-md transition-transform duration-200 group-hover/card:scale-105"
+                      className="object-cover h-[185px] overflow-hidden transition-transform duration-200 hover:scale-105"
                     />
-                    <div className="absolute bottom-0 left-0 right-0 p-4">
-                      <div className="flex items-center gap-2">
-                        <span className="bg-primary/20 text-primary px-2 py-1 rounded text-xs uppercase">
-                          {item.type}
-                        </span>
-                      </div>
-                    </div>
                   </div>
-                  <div>
+                  <div className="mt-2">
                     <h1>{item.name}</h1>
                   </div>
-                </Card>
+                </div>
               </Link>
             );
           })

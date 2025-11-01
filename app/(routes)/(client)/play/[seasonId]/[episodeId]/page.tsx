@@ -123,7 +123,7 @@ export default async function WatchPage({
     <ErrorBoundary>
       <div className="mx-auto px-4 py-4">
         <div className="grid lg:grid-cols-2 sm:grid-cols-1 md:grid-cols-2 mt-16">
-          <div className="relative lg:w-[900px] w-full">
+          <div className="relative video-player w-full">
             <VideoPlayer
               playbackId={muxData?.playbackId || ""}
               seasonId={seasonId}
@@ -138,6 +138,7 @@ export default async function WatchPage({
           <EpisodeInfo
             season={seasons ? [seasons] : []}
             episode={episodes}
+            series={series!}
             episodeId={episodeId}
           />
           <EpisodeBottomInfo

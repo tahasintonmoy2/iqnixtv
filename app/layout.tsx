@@ -41,7 +41,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <meta name="screen-orientation" content="portrait"/>
+      <meta name="screen-orientation" content="portrait" />
       <SessionProvider session={session}>
         <body className={cn(geistSans.className, "dark:bg-background")}>
           <Suspense>
@@ -50,7 +50,7 @@ export default async function RootLayout({
           <QueryProvider>
             <ThemeProvider
               attribute="class"
-              defaultTheme="dark"
+              defaultTheme="system"
               enableSystem
               disableTransitionOnChange
             >

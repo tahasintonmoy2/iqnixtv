@@ -36,7 +36,7 @@ export function SeasonSelectorClient({
 
   return (
     <Select value={selectedSeason} onValueChange={onSelectSeason}>
-      <SelectTrigger>
+      <SelectTrigger className="cursor-pointer">
         <SelectValue
           placeholder="Select a season"
           defaultValue={filteredSeasons[0]?.id}
@@ -46,11 +46,12 @@ export function SeasonSelectorClient({
             : `${filteredSeasons[0]?.name} ${filteredSeasons[0]?.seasonNumber}`}
         </SelectValue>
       </SelectTrigger>
-      <SelectContent align="end">
+      <SelectContent align="start">
         {filteredSeasons.map((season) => (
           <SelectItem
             key={season.id}
             value={season.id}
+            className={cn("cursor-pointer", season.id === selectedSeasonN?.id && "bg-secondary")}
             onSelect={() => {
               onSelectSeason(season.id);
             }}

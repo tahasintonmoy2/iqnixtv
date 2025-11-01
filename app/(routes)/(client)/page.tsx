@@ -1,6 +1,7 @@
 import { getEpisode } from "@/actions/get-episode";
 import { CategoryRow } from "@/components/category-row";
 import { ContinueWatching } from "@/components/continue-watching";
+import { RecommendationsSection } from "@/components/recommendations/recommendations-section";
 import { TrendingCarousel } from "@/components/trending-carousel";
 import { db } from "@/lib/db";
 import { isNewRelease } from "@/lib/new-release-utils";
@@ -47,7 +48,7 @@ export default async function Home() {
         isPopularContent(
           item.isPopular,
           item.viewsCount,
-          item.contentRating?.rating
+          item.contentRating?.rating,
         ),
     };
   });
@@ -67,11 +68,11 @@ export default async function Home() {
               method: "GET",
               headers: {
                 Authorization: `Basic ${Buffer.from(
-                  `${process.env.MUX_TOKEN_ID}:${process.env.MUX_TOKEN_SECRET}`
+                  `${process.env.MUX_TOKEN_ID}:${process.env.MUX_TOKEN_SECRET}`,
                 ).toString("base64")}`,
                 "Content-Type": "application/json",
               },
-            }
+            },
           );
 
           const asset = await response.json();
@@ -91,8 +92,8 @@ export default async function Home() {
           seriesId: content[0].id,
           seasonId: season.id, // Preserve the seasonId
         };
-      })
-    )
+      }),
+    ),
   );
 
   // Filter popular content
@@ -102,8 +103,8 @@ export default async function Home() {
       isPopularContent(
         item.isPopular,
         item.viewsCount,
-        item.contentRating?.rating
-      )
+        item.contentRating?.rating,
+      ),
   );
 
   return (
@@ -113,7 +114,10 @@ export default async function Home() {
           <TrendingCarousel
             series={contentWithFlags.map((item) => ({
               ...item,
-              ageRating: item.ageRating ?? { name: "Not Rated", id: "not-rated" },
+              ageRating: item.ageRating ?? {
+                name: "Not Rated",
+                id: "not-rated",
+              },
             }))}
             episode={episodes}
             contentAgeRating={content[0]?.ageRating?.name ?? "Not Rated"}
@@ -121,10 +125,14 @@ export default async function Home() {
         </div>
 
         {/* Continue Watching Section - Below the carousel */}
-        <div className="bg-background px-8 pt-8">
+        <div className="bg-background px-8 pt-6">
           <Suspense fallback={<RecommendationsLoading />}>
             <ContinueWatching episodes={episodes} />
           </Suspense>
+        </div>
+
+        <div className="my-6">
+          <RecommendationsSection />
         </div>
 
         <div>

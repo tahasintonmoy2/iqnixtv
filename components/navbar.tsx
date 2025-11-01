@@ -15,7 +15,7 @@ export const Navbar = async () => {
 
   return (
     <>
-      <nav className="fixed z-50 h-16 border-b navbar-width flex items-center px-4 justify-between backdrop-blur-lg">
+      <nav className="fixed z-50 h-16 navbar-width flex items-center px-4 justify-between backdrop-blur-lg bg-black/5 dark:bg-black/20">
         <div className="flex">
           <Logo href="/" />
           <NavRoutes />

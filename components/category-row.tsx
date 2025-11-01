@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { ContentRating, Episode, Series } from "@/lib/generated/prisma";
 import { ChevronLeft, ChevronRight, Star } from "lucide-react";
 import Image from "next/image";
@@ -10,13 +9,13 @@ import { useRef, useState } from "react";
 
 type CategoryRowProps = {
   title: string;
-  content: (Series & { contentRating?: ContentRating | null, episode: Episode[] })[];
+  content: (Series & {
+    contentRating?: ContentRating | null;
+    episode: Episode[];
+  })[];
 };
 
-export function CategoryRow({
-  title,
-  content,
-}: CategoryRowProps) {
+export function CategoryRow({ title, content }: CategoryRowProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollPosition, setScrollPosition] = useState(0);
 
@@ -55,7 +54,7 @@ export function CategoryRow({
 
   const handleTouchEnd = () => {
     if (!touchStart || !touchEnd) return;
-    
+
     const distance = touchStart - touchEnd;
     const isLeftSwipe = distance > 50;
     const isRightSwipe = distance < -50;
@@ -88,7 +87,6 @@ export function CategoryRow({
   //   )
   // }
 
-
   if (content.length === 0) {
     return (
       <div className="mb-8">
@@ -102,7 +100,9 @@ export function CategoryRow({
 
   return (
     <div className="mx-2 sm:mx-4 lg:mx-6">
-      <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 px-2 sm:px-0">{title}</h2>
+      <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 px-2 sm:px-0">
+        {title}
+      </h2>
 
       <div className="relative group">
         {/* Left navigation button */}
@@ -127,7 +127,7 @@ export function CategoryRow({
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           role="region"
           aria-label={`${title} content row`}
           tabIndex={0}
@@ -139,15 +139,16 @@ export function CategoryRow({
               className="flex-shrink-0 w-24 sm:w-32 md:w-40 lg:w-48"
               aria-label={`${item.name} - ${item.episode.length} episodes`}
             >
-              <Card className="overflow-hidden bg-transparent border-0 w-full group/card gap-0">
+              <div className="overflow-hidden bg-transparent border-0 w-full group/div gap-0">
                 <div className="relative aspect-[2/3]">
+                 <div>
                   <Image
                     src={item.thumbnailImageUrl || "/placeholder.svg"}
                     alt={`${item.name} thumbnail`}
                     fill
-                    className="object-cover rounded-md transition-transform duration-200 group-hover/card:scale-105"
-                    sizes="(max-width: 640px) 96px, (max-width: 768px) 128px, (max-width: 1024px) 160px, 192px"
+                    className="object-cover rounded-sm"
                   />
+                 </div>
                   {item.contentRating && (
                     <div className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-black/70 text-white px-1 py-0.5 sm:px-2 sm:py-1 rounded text-xs flex items-center gap-1">
                       <Star className="size-3 sm:size-4 fill-yellow-500" />
@@ -167,7 +168,7 @@ export function CategoryRow({
                     {item.name}
                   </h3>
                 </div>
-              </Card>
+              </div>
             </Link>
           ))}
         </div>

@@ -42,6 +42,8 @@ export function RecommendationsClient() {
     }
   };
 
+  console.log(fetchRecommendations);
+
   const trackInteraction = async (contentId: string, interaction: 'view' | 'rate' | 'complete') => {
     try {
     await axios.post('/api/recommendations', { contentId, interaction });

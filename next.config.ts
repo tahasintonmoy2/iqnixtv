@@ -21,7 +21,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  allowedDevOrigins: ["http://192.168.13.126:3000"]
+  reactStrictMode: false,
 };
 
 export default nextConfig;

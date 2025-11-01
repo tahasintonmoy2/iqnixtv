@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import axios from 'axios';
-import { useEffect, useState } from 'react';
-import { Button } from '../ui/button';
-import { RecommendationSection } from './recommendation-section';
+import axios from "axios";
+import { useEffect, useState } from "react";
+import { Button } from "../ui/button";
+import { RecommendationSection } from "./recommendation-section";
 
 interface RecommendationResult {
   contentId: string;
@@ -24,7 +24,8 @@ interface MixedRecommendations {
 }
 
 export function RecommendationsSection() {
-  const [recommendations, setRecommendations] = useState<MixedRecommendations | null>(null);
+  const [recommendations, setRecommendations] =
+    useState<MixedRecommendations | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,33 +36,36 @@ export function RecommendationsSection() {
   const fetchRecommendations = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/recommendations?type=mixed');
-      
+      const response = await fetch("/api/recommendations?type=mixed");
+
       if (!response.ok) {
-        throw new Error('Failed to fetch recommendations');
+        throw new Error("Failed to fetch recommendations");
       }
 
       const data = await response.json();
       setRecommendations(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
   };
 
-  const trackInteraction = async (seriesId: string, interaction: 'view' | 'rate' | 'complete') => {
+  const trackInteraction = async (
+    seriesId: string,
+    interaction: "view" | "rate" | "complete",
+  ) => {
     try {
-      await axios.post("/api/recommendations", ({
+      await axios.post("/api/recommendations", {
         seriesId,
         eventType: interaction.toUpperCase(),
         properties: {
           timestamp: new Date().toISOString(),
           interactionType: interaction,
-        }
-      }));
+        },
+      });
     } catch (err) {
-      console.error('Failed to track interaction:', err);
+      console.error("Failed to track interaction:", err);
     }
   };
 
@@ -73,7 +77,10 @@ export function RecommendationsSection() {
             <div className="h-8 bg-muted rounded w-64"></div>
             <div className="flex space-x-4 overflow-hidden">
               {[...Array(6)].map((_, j) => (
-                <div key={j} className="flex-none w-64 h-36 bg-muted rounded-lg"></div>
+                <div
+                  key={j}
+                  className="flex-none w-64 h-36 bg-muted rounded-lg"
+                ></div>
               ))}
             </div>
           </div>
@@ -84,13 +91,9 @@ export function RecommendationsSection() {
 
   if (error) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-4">
         <div className="text-red-600 mb-4">Error loading recommendations</div>
-        <Button
-          onClick={fetchRecommendations}
-        >
-          Try Again
-        </Button>
+        <Button onClick={fetchRecommendations}>Try Again</Button>
       </div>
     );
   }
@@ -101,29 +104,32 @@ export function RecommendationsSection() {
 
   return (
     <div className="space-y-12 mx-6">
-      {Array.isArray(recommendations.forYou) && recommendations.forYou.length > 0 && (
-        <RecommendationSection
-          title="Recommended for You"
-          items={recommendations.forYou}
-          onItemClick={(contentId) => trackInteraction(contentId, 'view')}
-        />
-      )}
+      {Array.isArray(recommendations.forYou) &&
+        recommendations.forYou.length > 0 && (
+          <RecommendationSection
+            title="Recommended for You"
+            items={recommendations.forYou}
+            onItemClick={(contentId) => trackInteraction(contentId, "view")}
+          />
+        )}
 
-      {Array.isArray(recommendations.trending) && recommendations.trending.length > 0 && (
-        <RecommendationSection
-          title="Trending Now"
-          items={recommendations.trending}
-          onItemClick={(contentId) => trackInteraction(contentId, 'view')}
-        />
-      )}
+      {Array.isArray(recommendations.trending) &&
+        recommendations.trending.length > 0 && (
+          <RecommendationSection
+            title="Trending Now"
+            items={recommendations.trending}
+            onItemClick={(contentId) => trackInteraction(contentId, "view")}
+          />
+        )}
 
-      {Array.isArray(recommendations.becauseYouWatched) && recommendations.becauseYouWatched.length > 0 && (
-        <RecommendationSection
-          title="Because You Watched Similar Content"
-          items={recommendations.becauseYouWatched}
-          onItemClick={(contentId) => trackInteraction(contentId, 'view')}
-        />
-      )}
+      {Array.isArray(recommendations.becauseYouWatched) &&
+        recommendations.becauseYouWatched.length > 0 && (
+          <RecommendationSection
+            title="Because You Watched Similar Content"
+            items={recommendations.becauseYouWatched}
+            onItemClick={(contentId) => trackInteraction(contentId, "view")}
+          />
+        )}
     </div>
   );
 }

@@ -19,7 +19,7 @@ const Logo = ({ href, className }: LogoProps) => {
         href={href}
         className={cn("flex items-center w-30 gap-x-2 font-semibold", className)}
       >
-        <h1 className={cn("font-semibold lg:text-2xl text-xl text-white", txtFont.className)}>
+        <h1 className={cn("font-semibold lg:text-2xl text-xl dark:text-white", txtFont.className)}>
           <p>Iqnix TV</p>
         </h1>
       </Link>

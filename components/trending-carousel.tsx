@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { AgeRating, Episode, Season, Series } from "@/lib/generated/prisma";
 import { format } from "date-fns";
-import { ChevronLeft, ChevronRight, Info, Play, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Play, Plus } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -220,22 +220,12 @@ export function TrendingCarousel({ series }: CarouselProps) {
               </Link>
               <Button
                 variant="outline"
-                className="gap-2 text-white border-white/30 hover:bg-white/10"
+                className="gap-2"
                 size="sm"
               >
                 <Plus size={16} />
                 My List
               </Button>
-              <Link href={`/title/${currentItem.id}`}>
-                <Button
-                  variant="outline"
-                  className="gap-2 text-white border-white/30 hover:bg-white/10"
-                  size="sm"
-                >
-                  <Info size={16} />
-                  More Info
-                </Button>
-              </Link>
             </div>
           </div>
         </div>
