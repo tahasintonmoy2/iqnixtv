@@ -1,13 +1,15 @@
 "use client";
 
+import { useAuth } from "@/contexts/auth-context";
 import { useAuthModal } from "@/hooks/use-auth-modal";
 import { useDeleteCommentModal } from "@/hooks/use-delete-comment-modal";
+import { useDeleteReplyModal } from "@/hooks/use-delete-reply-modal";
 import { useMobile } from "@/hooks/use-mobile";
-import { useUser } from "@/hooks/use-user";
 import { Comment, Like, Reply, User } from "@/lib/generated/prisma";
 import { cn } from "@/lib/utils";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
+import { formatDistanceToNow } from "date-fns";
 import { motion } from "framer-motion";
 import {
   ChevronDown,
@@ -19,17 +21,15 @@ import {
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 import { toast } from "sonner";
-import { formatDistanceToNow } from "date-fns";
 import { CommentAction } from "./comment-action";
 import { DeleteCommentModal } from "./models/delete-comment-modal";
+import { DeleteReplyModal } from "./models/delete-reply-modal";
+import { ReplyAction } from "./reply-action";
+import { ReplyCard } from "./reply-card";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
 import { Textarea } from "./ui/textarea";
-import { ReplyCard } from "./reply-card";
-import { ReplyAction } from "./reply-action";
-import { useDeleteReplyModal } from "@/hooks/use-delete-reply-modal";
-import { DeleteReplyModal } from "./models/delete-reply-modal";
 
 interface CommentCardProps {
   comments: (Comment & {
@@ -44,7 +44,7 @@ interface CommentCardProps {
 }
 
 export const CommentCard = ({ comments, episodeId }: CommentCardProps) => {
-  const user = useUser();
+  const { user } = useAuth();
   const { onOpen } = useAuthModal();
   const { onClose: onCloseDelete, selectedCommentId } = useDeleteCommentModal();
   const isMobile = useMobile();
@@ -299,8 +299,8 @@ export const CommentCard = ({ comments, episodeId }: CommentCardProps) => {
   };
 
   const episodeComment = comments.filter(
-    commnent => commnent.episodeId === episodeId
-  )
+    (commnent) => commnent.episodeId === episodeId
+  );
 
   return (
     <div>
@@ -318,14 +318,14 @@ export const CommentCard = ({ comments, episodeId }: CommentCardProps) => {
                 <AvatarImage
                   src={
                     user?.image ||
-                    `https://avatar.vercel.sh/${user?.firstName}.png`
+                    `https://avatar.vercel.sh/${user?.firstname}.png`
                   }
                 />
               </Avatar>
               <Textarea
                 className={cn(
-                  "ml-2 mb-3 resize-none lg:w-[51rem] w-[24rem]",
-                  isMobile && "w-[19rem]"
+                  "ml-2 mb-3 resize-none lg:w-204 w-[24rem]",
+                  isMobile && "w-76"
                 )}
                 value={commentContent}
                 disabled={createComment.isPending}
@@ -359,7 +359,7 @@ export const CommentCard = ({ comments, episodeId }: CommentCardProps) => {
             <Avatar className="bg-secondary">
               <UserCircle className="size-8 text-slate-300" />
             </Avatar>
-            <div className="flex items-center justify-center ml-2 border px-4 py-6 rounded-md lg:w-[54rem]">
+            <div className="flex items-center justify-center ml-2 border px-4 py-6 rounded-md lg:w-216">
               <h1 className="mr-2">To post comment</h1>
               <Button onClick={onOpen}>Login</Button>
             </div>
@@ -413,7 +413,7 @@ export const CommentCard = ({ comments, episodeId }: CommentCardProps) => {
                       disabled={updateComment.isPending}
                       onChange={(e) => setEditingContent(e.target.value)}
                       className={cn(
-                        "ml-10 mb-3 resize-none lg:w-[50rem] w-[23rem]",
+                        "ml-10 mb-3 resize-none lg:w-200 w-92",
                         isMobile && "w-[18rem]"
                       )}
                     />
@@ -516,16 +516,16 @@ export const CommentCard = ({ comments, episodeId }: CommentCardProps) => {
                                       <AvatarImage
                                         src={
                                           user?.image ||
-                                          `https://avatar.vercel.sh/${user?.firstName}.png`
+                                          `https://avatar.vercel.sh/${user?.firstname}.png`
                                         }
                                       />
                                       <AvatarFallback>
-                                        {user?.firstName.slice(0, 2)}
+                                        {user?.firstname.slice(0, 2)}
                                       </AvatarFallback>
                                     </Avatar>
                                     <div className="ml-3 flex items-center">
                                       <h1 className="text-lg">
-                                        {user?.firstName} {user?.lastName}
+                                        {user?.firstname} {user?.lastname}
                                       </h1>
                                       <span className="mx-2 w-1 h-1 rounded-full bg-muted-foreground inline-block" />
                                       <h2 className="text-muted-foreground">
@@ -552,8 +552,8 @@ export const CommentCard = ({ comments, episodeId }: CommentCardProps) => {
                                       setEditingReplyContent(e.target.value)
                                     }
                                     className={cn(
-                                      "ml-10 mb-3 resize-none lg:w-[48rem] w-[23rem]",
-                                      isMobile && "w-[14rem]"
+                                      "ml-10 mb-3 resize-none lg:w-3xl w-92",
+                                      isMobile && "w-56"
                                     )}
                                   />
                                   <div className="flex items-end justify-end mr-4 gap-x-2">

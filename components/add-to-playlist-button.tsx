@@ -1,25 +1,31 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useAddToMyList } from "@/hooks/use-playlists";
-import { useUser } from "@/hooks/use-user";
-import { useWatchlistModal } from "@/hooks/use-watchlist-modal";
-import { Bookmark, BookmarkMinus } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
+import axios from "axios";
+import { Bookmark } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { BsBookmarkCheckFill } from "react-icons/bs";
 import { toast } from "sonner";
 
 interface AddToPlaylistButtonProps {
   seriesId: string;
+  playlistId: string | null;
   variant?: "default" | "outline" | "ghost";
   className?: string;
 }
 
 export const AddToPlaylistButton = ({
   seriesId,
+  playlistId,
   variant = "outline",
   className = "gap-2",
 }: AddToPlaylistButtonProps) => {
-  const user = useUser();
-  const addToMyList = useAddToMyList();
+  const { user } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingDelete, setIsLoadingDelete] = useState(false);
+  const router = useRouter();
 
   const handleAddToMyList = async () => {
     if (!user) {
@@ -28,9 +34,37 @@ export const AddToPlaylistButton = ({
     }
 
     try {
-      await addToMyList.mutateAsync(seriesId);
+      if (playlistId) {
+        setIsLoadingDelete(true);
+        await axios.delete(`/api/series/${seriesId}/playlists/${playlistId}`, {
+          data: {
+            playlistId,
+          },
+        });
+        router.refresh();
+        toast.success("Removed from Watch later");
+      } else {
+        setIsLoading(true);
+        await axios.post(`/api/series/${seriesId}/playlists`, {
+          name: "Watch later",
+          description: "Your personal collection of favorite content",
+          seriesId,
+        });
+        router.refresh();
+        toast.success("Added to Watch later");
+      }
     } catch (error) {
+      if (!playlistId) {
+        toast.error("Failed to delete playlist");
+        setIsLoadingDelete(true);
+      } else {
+        toast.error("Failed to add playlist");
+        setIsLoading(false);
+      }
       console.error("Error adding to list:", error);
+    } finally {
+      setIsLoadingDelete(false);
+      setIsLoading(false);
     }
   };
 
@@ -39,25 +73,14 @@ export const AddToPlaylistButton = ({
       variant={variant}
       className={className}
       onClick={handleAddToMyList}
-      disabled={addToMyList.isPending}
+      disabled={isLoadingDelete || isLoading}
     >
-      {addToMyList.isSuccess ? (
-        <BookmarkMinus size={16} />
+      {playlistId ? <BsBookmarkCheckFill size={16} /> : <Bookmark size={16} />}
+      {playlistId && !isLoading ? (
+        <p>{isLoadingDelete ? "Removing" : "Added to playlist"}</p>
       ) : (
-        <Bookmark size={16} />
+        <p>{isLoading ? "Adding" : "Watch later"}</p>
       )}
-      {addToMyList.isPending ? "Adding..." : "My List"}
-    </Button>
-  );
-};
-
-export const AddToMyListButton = () => {
-  const { onOpen } = useWatchlistModal();
-
-  return (
-    <Button variant="outline" onClick={onOpen}>
-      <Bookmark size={16} />
-      My List
     </Button>
   );
 };

@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { AgeRating, Episode, Season, Series } from "@/lib/generated/prisma";
 import { format } from "date-fns";
+import { } from "framer-motion";
 import { ChevronLeft, ChevronRight, Play, Plus } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -16,7 +17,7 @@ interface CarouselProps {
     ageRating: AgeRating;
   })[];
   episode: (Episode & {
-    thumbnailUrl?: string;
+    thumbnailImageUrl?: string;
     duration?: number;
     seasonId: string;
   })[];
@@ -40,7 +41,7 @@ export function TrendingCarousel({ series }: CarouselProps) {
       if (!isPaused) {
         setActiveIndex((current) => (current + 1) % series.length);
       }
-    }, 8000);
+    }, 4000);
   }, [isPaused, series.length]);
 
   const stopAutoAdvance = useCallback(() => {
@@ -149,19 +150,19 @@ export function TrendingCarousel({ series }: CarouselProps) {
       {/* Background image with gradient overlay */}
       <div className="absolute inset-0 transition-opacity duration-1000">
         <Image
-          src={currentItem.thumbnailImageUrl || "/placeholder.svg"}
-          alt={`${currentItem.name} - Featured content`}
+          src={currentItem?.thumbnailImageUrl || "/placeholder.svg"}
+          alt={`${currentItem?.name} - Featured content`}
           fill
           className="w-full h-full object-cover"
           priority={activeIndex === 0}
           sizes="100vw"
         />
         {/* Gradient overlay for better text readability */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-r from-black/70 via-black/30 to-transparent" />
       </div>
 
       {/* Navigation buttons */}
-      {series.length > 1 && (
+      {series?.length > 1 && (
         <>
           <Button
             onClick={goToPrevious}
@@ -187,7 +188,7 @@ export function TrendingCarousel({ series }: CarouselProps) {
         <div className="px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 w-full lg:pt-28 pt-40">
           <div className="max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl">
             <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold mb-2 sm:mb-4 text-white leading-tight">
-              {currentItem.name}
+              {currentItem?.name}
             </h2>
 
             <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-white/90 mb-3 sm:mb-4">
@@ -195,34 +196,30 @@ export function TrendingCarousel({ series }: CarouselProps) {
                 variant="outline"
                 className="text-white border-white/30 bg-black/30"
               >
-                {currentItem.ageRating.name}
+                {currentItem?.ageRating?.name}
               </Badge>
               <span className="hidden sm:inline">|</span>
               <span>
-                {currentItem.releaseDate
+                {currentItem?.releaseDate
                   ? format(currentItem.releaseDate, "yyyy")
                   : "Unknown"}
               </span>
               <span className="hidden sm:inline">|</span>
-              <span className="truncate">{currentItem.region}</span>
+              <span className="truncate">{currentItem?.region}</span>
             </div>
 
             <p className="text-white/90 text-sm sm:text-base mb-4 sm:mb-6 line-clamp-2 sm:line-clamp-3 leading-relaxed">
-              {currentItem.description}
+              {currentItem?.description}
             </p>
 
             <div className="flex gap-2 sm:gap-4">
-              <Link href={`/play/${currentItem.seasons[0]?.id}`}>
+              <Link href={`/play/${currentItem?.seasons[0]?.id}`}>
                 <Button className="gap-2" size="sm">
                   <Play size={16} />
                   Play
                 </Button>
               </Link>
-              <Button
-                variant="outline"
-                className="gap-2"
-                size="sm"
-              >
+              <Button variant="outline" className="gap-2" size="sm">
                 <Plus size={16} />
                 My List
               </Button>

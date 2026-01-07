@@ -54,7 +54,7 @@ const SeriesIdPage = async ({ params }: SeriesIdProps) => {
   return (
     <div>
       <ContentForm
-        series={series!}
+        seriesId={contentId}
         seasons={seasons}
         episodes={episodes}
         categories={categories}

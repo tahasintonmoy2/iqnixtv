@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 
 export const AccountVerificationForm = () => {
   const searchParams = useSearchParams();
-  const token = searchParams.get("code");
+  const token = searchParams.get("token");
   const [error, setError] = useState<string | undefined>();
   const [success, setSuccess] = useState<string | undefined>();
 

@@ -1,9 +1,8 @@
 "use client";
 
-import {login} from "@/actions/login";
-import {FormError} from "@/components/form-error";
-import {FormSuccess} from "@/components/form-success";
-import {Button} from "@/components/ui/button";
+import { FormError } from "@/components/form-error";
+import { FormSuccess } from "@/components/form-success";
+import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -13,30 +12,33 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSeparator,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
-import {Input} from "@/components/ui/input";
-import {LoginSchema} from "@/schemas";
-import {zodResolver} from "@hookform/resolvers/zod";
-import {useSearchParams} from "next/navigation";
-import {useState, useTransition} from "react";
-import {useForm} from "react-hook-form";
-import * as z from "zod";
-import {CardWrapper} from "./card-wrapper";
+import { useAuth } from "@/contexts/auth-context";
+import { cn } from "@/lib/utils";
+import { LoginSchema } from "@/schemas";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
-import {cn} from "@/lib/utils";
-import {Eye, EyeOff} from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { CardWrapper } from "./card-wrapper";
 
 export const LoginForm = () => {
-  const [isPending, startTransition] = useTransition();
+  const {login, loading, authError} = useAuth();
   const [error, setError] = useState<string | undefined>("");
   const [success, setSuccess] = useState<string | undefined>("");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showTwoFactor, setShowTwoFactor] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showEmailVerification, setShowEmailVerification] = useState<boolean>(false);
 
   const searchParams = useSearchParams();
@@ -55,31 +57,15 @@ export const LoginForm = () => {
 
   const {isSubmitting, errors} = form.formState;
 
-  const onSubmit = (values: z.infer<typeof LoginSchema>) => {
-    setError("");
-    setSuccess("");
-
-    startTransition(() => {
-      login(values)
-        .then((data) => {
-          if (data?.error) {
-            setError(data.error);
-            form.reset();
-          }
-          if (data?.success) {
-            if (data.success.includes("Confirmation email sent")) {
-              setShowEmailVerification(true)
-              setSuccess(data.success)
-            } else {
-              setSuccess(data.success);
-              form.reset();
-            }
-          }
-          if (data?.twoFactor) {
-            setShowTwoFactor(true);
-          }
-        });
-    });
+  const onSubmit = async (values: z.infer<typeof LoginSchema>) => {
+    try {
+      await login(values.email, values.password);
+      form.reset();
+      setSuccess("Logged in successfully!");
+    } catch (err) {
+      console.log(err);
+      setError(authError || "Something went wrong. Please try again.");
+    }
   };
 
   return (
@@ -167,7 +153,7 @@ export const LoginForm = () => {
                     <FormLabel>Email</FormLabel>
                     <FormControl>
                       <Input
-                        disabled={isPending || isSubmitting}
+                        disabled={loading || isSubmitting}
                         className="w-full"
                         placeholder="yu@example.com"
                         type="email"
@@ -197,7 +183,7 @@ export const LoginForm = () => {
                       <FormControl>
                         <div className="flex items-center relative">
                           <Input
-                            disabled={isPending || isSubmitting}
+                            disabled={loading || isSubmitting}
                             className={cn(
                               "w-full",
                               errors.password &&
@@ -235,7 +221,7 @@ export const LoginForm = () => {
             <Button
               className="w-full mt-3"
               type="submit"
-              disabled={isPending || isSubmitting}
+              disabled={loading || isSubmitting}
             >
               {showEmailVerification ? "Verify Email" : showTwoFactor ? "Confirm" : "Login"}
             </Button>

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRelatedContent } from "@/hooks/use-related-content";
 import { Episode, Season, Series } from "@/lib/generated/prisma";
+import { cn } from "@/lib/utils";
 import {
   AlertCircle,
   ChevronLeft,
@@ -32,6 +33,12 @@ export function RelatedContent({
 }: RelatedContentProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollPosition, setScrollPosition] = useState(0);
+
+  const sizeClasses = {
+    small: "w-36 h-52 sm:w-40 sm:h-56",
+    medium: "w-44 h-60 sm:w-52 sm:h-72",
+    large: "w-56 h-80 sm:w-64 sm:h-96",
+  };
 
   const { data, loading, error } = useRelatedContent(seriesId, genre, 10);
 
@@ -107,7 +114,7 @@ export function RelatedContent({
         }}
       >
         {content.length === 0 ? (
-          <div className="flex flex-col items-center justify-center w-full py-8 text-center">
+          <div className="flex flex-col items-center justify-center w-full py-8 text-center" key={content[0]?.id}>
             <div className="rounded-full bg-muted/30 p-4 mb-4">
               <TriangleAlert className="size-6 text-muted-foreground" />
             </div>
@@ -124,32 +131,35 @@ export function RelatedContent({
             const firstEpisode = relatedSeasons[0]?.episodes[0];
 
             return (
-              <Link
-                key={item.id}
-                href={
-                  item.type === "SERIES" || item.type === "MOVIE"
-                    ? firstEpisode
-                      ? `/play/${relatedSeasons[0].id}/${firstEpisode.id}`
-                      : `/drama/${item.id}`
-                    : `/movie/${item.id}`
-                }
-                className="flex-shrink-0 w-[140px] overflow-hidden"
-              >
-                <div className="gap-3 w-[140px]">
-                  <div className="overflow-hidden relative rounded">
-                    <Image
-                      src={item.thumbnailImageUrl || "/placeholder.svg"}
-                      alt={item.name}
-                      width={500}
-                      height={185}
-                      className="object-cover h-[185px] overflow-hidden transition-transform duration-200 hover:scale-105"
-                    />
+              <div>
+                <Link
+                  key={item.id}
+                  href={
+                    item.type === "SERIES" || item.type === "MOVIE"
+                      ? firstEpisode
+                        ? `/play/${relatedSeasons[0].id}/${firstEpisode.id}`
+                        : `/drama/${item.id}`
+                      : `/movie/${item.id}`
+                  }
+                  className={cn("flex-shrink-0 overflow-hidden")}
+                >
+                  <div
+                    className={cn("group relative rounded-md gap-3 overflow-hidden", sizeClasses["small"])}
+                  >
+                    <div className="h-full w-full">
+                      <Image
+                        src={item.thumbnailImageUrl || "/placeholder.svg"}
+                        alt={item.name}
+                        fill
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                      />
+                    </div>
                   </div>
-                  <div className="mt-2">
+                  <div className="mt-2 w-40">
                     <h1>{item.name}</h1>
                   </div>
-                </div>
-              </Link>
+                </Link>
+              </div>
             );
           })
         )}

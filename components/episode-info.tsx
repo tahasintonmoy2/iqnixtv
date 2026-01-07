@@ -105,7 +105,7 @@ export function EpisodeInfo({
           <div
             key={episode.id}
             className={cn(
-              "bg-secondary min-w-[40px] py-1 flex flex-col cursor-pointer rounded-sm relative h-[40.8px] px-2 items-center whitespace-nowrap overflow-hidden text-ellipsis",
+              "bg-secondary min-w-10 py-1 flex flex-col cursor-pointer rounded-sm relative h-[40.8px] px-2 items-center whitespace-nowrap overflow-hidden text-ellipsis",
               episode.id === episodeId
                 ? "text-violet-600"
                 : "hover:text-violet-600"

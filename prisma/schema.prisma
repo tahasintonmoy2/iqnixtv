@@ -5,7 +5,7 @@ generator client {
 
 datasource db {
   provider     = "postgresql"
-  url          = env("DATABASE_URL")
+  url = env("DATABASE_URL")
   relationMode = "prisma"
 }
 
@@ -124,17 +124,9 @@ model Authenticator {
 model Genre {
   id             String         @id @default(cuid())
   name           String
-  seasonId       String?
-  season         Season?        @relation(fields: [seasonId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   series         Series[]
-  seriesBannerId String?
-  seriesBanner   SeriesBanner[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([seasonId])
-  @@index([seriesBannerId])
+  @@map("genre")
 }
 
 model Cast {
@@ -198,11 +190,9 @@ model Episode {
   ageRating         AgeRating?           @relation(fields: [ageRatingId], references: [id])
   contentLanguageId String?
   contentLanguage   ContentLanguage?     @relation(fields: [contentLanguageId], references: [id])
-  contentRatingId   String?
-  contentRating     ContentRating?       @relation(fields: [contentRatingId], references: [id])
   contentWarnings   ContentWarningsType?
   videoUrl          String?
-  subtitles         String?
+  subtitles         SubtitleTrack[]
   audioTrack        String?
   duration          Int?
   isPublished       Boolean?             @default(false)
@@ -216,6 +206,7 @@ model Episode {
   uploadFiles       UploadFile[]
   comments          Comment[]
   userProgress      UserProgress[]
+  audioTracks       AudioTrack[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -224,7 +215,6 @@ model Episode {
   @@index([seriesId])
   @@index([ageRatingId])
   @@index([contentLanguageId])
-  @@index([contentRatingId])
 }
 
 model Season {
@@ -241,7 +231,6 @@ model Season {
   regions           String?
   episodes          Episode[]
   casts             Cast[]
-  genres            Genre[]
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -253,7 +242,8 @@ model AgeRating {
   name         String         @unique
   episodes     Episode[]
   series       Series[]
-  seriesBanner SeriesBanner[]
+  
+  @@map("age_rating")
 }
 
 model ContentLanguage {
@@ -269,7 +259,6 @@ model ContentRating {
   rating   Float     @unique @default(0)
   userId   String
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  episodes Episode[]
   series   Series[]
 
   @@index([userId])
@@ -379,40 +368,43 @@ model Thread {
 }
 
 model Series {
-  id                 String               @id @default(cuid())
-  name               String
-  description        String?              @db.Text
-  type               ContentType?         @default(SERIES)
-  duration           String?
-  contentWarnings    ContentWarningsType? @default(ALCOHOL_USE)
-  contentLanguageId  String?
-  contentLanguage    ContentLanguage?     @relation(fields: [contentLanguageId], references: [id])
-  isPublished        Boolean?             @default(false)
-  isAvailableRegions Boolean?             @default(false)
-  viewsCount         Int?                 @default(0)
-  contentRatingId    String?
-  contentRating      ContentRating?       @relation(fields: [contentRatingId], references: [id], onDelete: Cascade)
-  ageRatingId        String?
-  ageRating          AgeRating?           @relation(fields: [ageRatingId], references: [id])
-  releaseDate        DateTime?
-  isNewRelease       Boolean?             @default(false)
-  isPopular          Boolean?             @default(false)
-  thumbnailImageUrl  String?
-  bannerImageUrl     String?
-  trailerVideoUrl    String?
-  region             String?
-  castDescription    String?              @db.Text
-  isPaid             Boolean?             @default(false)
-  seasons            Season[]
-  episodes           Episode[]
-  playlistId         String?
-  playlist           Playlist?            @relation(fields: [playlistId], references: [id], onDelete: Cascade)
-  genreId            String?
-  genre              Genre?               @relation(fields: [genreId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  casts              Cast[]
-  playlistContent    PlaylistContent[]
-  watchHistory       WatchHistory[]
-  seriesBanners      SeriesBanner[]
+  id                      String               @id @default(cuid())
+  name                    String
+  description             String?              @db.Text
+  type                    ContentType?         @default(SERIES)
+  duration                String?
+  contentWarnings         ContentWarningsType? @default(ALCOHOL_USE)
+  contentLanguageId       String?
+  contentLanguage         ContentLanguage?     @relation(fields: [contentLanguageId], references: [id])
+  isPublished             Boolean?             @default(false)
+  isAvailableRegions      Boolean?             @default(false)
+  viewsCount              Int?                 @default(0)
+  contentRatingId         String?
+  contentRating           ContentRating?       @relation(fields: [contentRatingId], references: [id], onDelete: Cascade)
+  ageRatingId             String?
+  ageRating               AgeRating?           @relation(fields: [ageRatingId], references: [id])
+  releaseDate             DateTime?
+  isNewRelease            Boolean?             @default(false)
+  isPopular               Boolean?             @default(false)
+  thumbnailImageUrl       String?
+  bannerImageUrl          String?
+  trailerVideoUrl         String?
+  region                  String?
+  starringCastDescription String?              @db.Text
+  castDescription         String?              @db.Text
+  isPaid                  Boolean?             @default(false)
+  seasons                 Season[]
+  episodes                Episode[]
+  playlistId              String?
+  playlist                Playlist?            @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  genreId                 String?
+  genre                   Genre?               @relation(fields: [genreId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  watchHistoryId String?
+  casts                   Cast[]
+  playlistContent         PlaylistContent[]
+  watchHistory            WatchHistory[]
+  seriesBanners           SeriesBanner[]
+  trailers                Trailers[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -422,6 +414,24 @@ model Series {
   @@index([playlistId])
   @@index([ageRatingId])
   @@index([genreId])
+}
+
+model Trailers {
+  id                String          @id @default(uuid())
+  name              String
+  type              TrailersStatus? @default(TEASER)
+  isPublished       Boolean?        @default(false)
+  videoUrl          String?
+  thumbnailImageUrl String?
+
+  seriesId String?
+  series   Series?  @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  muxData  MuxData?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([seriesId])
 }
 
 model SeriesBanner {
@@ -438,45 +448,62 @@ model SeriesBanner {
   isPublished    Boolean?            @default(false)
   seriesId       String?
   series         Series?             @relation(fields: [seriesId], references: [id], onDelete: Cascade)
-  genreId        String?
-  genre          Genre?              @relation(fields: [genreId], references: [id])
-  ageRatingId    String?
-  ageRating      AgeRating?          @relation(fields: [ageRatingId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([seriesId])
-  @@index([ageRatingId])
-  @@index([genreId])
 }
 
 model MuxData {
-  id         String  @id @default(cuid())
+  id         String    @id @default(cuid())
   assetId    String
   playbackId String?
-  episodeId  String  @unique
-  episode    Episode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  episodeId  String?   @unique
+  episode    Episode?  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  trailerId  String?   @unique
+  trailer    Trailers? @relation(fields: [trailerId], references: [id], onDelete: Cascade)
+
+  subtitles   SubtitleTrack[]
+  audioTracks AudioTrack[]
 }
 
-model Subtitle {
-  id            String         @id @default(uuid())
-  playbackId    String
-  label         String?
-  languageLabel String?
+model SubtitleTrack {
+  id            String   @id @default(uuid())
+  muxTrackId    String?  @unique
+  name          String
   languageCode  String
-  fileUrl       String
-  status        SubtitleStatus @default(PENDING) // pending | processing | ready | failed
-  autoGenerated Boolean?       @default(false)
-  createdAt     DateTime       @default(now())
+  url           String
+  status        String
+  autoGenerated Boolean  @default(false)
+  episodeId     String
+  episode       Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  muxDataId     String?
+  muxData       MuxData? @relation(fields: [muxDataId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([episodeId])
+  @@index([muxDataId])
 }
 
-model AlternateAudio {
-  id           String   @id @default(uuid())
-  name         String?
-  languageCode String
-  url          String
+model AudioTrack {
+  id           String   @id @default(cuid())
+  muxTrackId   String   @unique
+  muxDataId    String?
+  muxData      MuxData? @relation(fields: [muxDataId], references: [id], onDelete: Cascade)
+  episodeId    String
+  episode      Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  url          String?
+  type         String // "primary" or "alternate"
+  languageCode String // BCP-47 language tag (e.g., "en", "es", "fr")
+  name         String // Display name (e.g., "English", "Español")
+  status       String   @default("preparing")
   createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([muxDataId])
+  @@index([episodeId])
 }
 
 model UserProgress {
@@ -496,17 +523,15 @@ model UserProgress {
 }
 
 model Playlist {
-  id                String            @id @default(cuid())
-  name              String
-  description       String?
-  thumbnailImageUrl String?
-  itemCount         Int?
-  duration          Float?
-  lastUpdatedAt     DateTime          @default(now())
-  userId            String
-  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  contents          PlaylistContent[]
-  series            Series[]
+  id            String            @id @default(cuid())
+  name          String
+  description   String?
+  itemCount     Int?
+  lastUpdatedAt DateTime          @default(now())
+  userId        String
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contents      PlaylistContent[]
+  series        Series[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -519,7 +544,6 @@ model PlaylistContent {
   playlistId String
   seriesId   String
   series     Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
-  order      Int      @default(0)
   playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -581,6 +605,20 @@ model WebhookEvent {
 
   @@index([type])
   @@index([processed])
+}
+
+enum TrailersStatus {
+  TRAILER
+  TEASER
+  CLIP
+}
+
+enum ContentRequestStatus {
+  UNDER_REVIEW
+  REJECTED
+  APPROVED
+  IN_DUBBING
+  COMPLETED
 }
 
 enum SubtitleStatus {
@@ -662,24 +700,6 @@ model Subscription {
   @@index([customerId])
 }
 
-model GenreToSeries {
-  A String
-  B String
-
-  @@id([A, B], map: "_GenreToSeries_AB_pkey")
-  @@index([B], map: "_GenreToSeries_B_index")
-  @@map("_GenreToSeries")
-}
-
-model PlaylistContentToUser {
-  A String
-  B String
-
-  @@id([A, B], map: "_PlaylistContentToUser_AB_pkey")
-  @@index([B], map: "_PlaylistContentToUser_B_index")
-  @@map("_PlaylistContentToUser")
-}
-
 enum UserRole {
   ADMIN
   USER
@@ -695,6 +715,7 @@ enum ContentType {
   SERIES
   MOVIE
   DOCUMENTARY
+  VARIETY_SHOWS
 }
 
 enum ContentWarningsType {

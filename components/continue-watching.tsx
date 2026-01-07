@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { useUser } from "@/hooks/use-user";
+import { useAuth } from "@/contexts/auth-context";
 import { Episode, Season, Series, WatchHistory } from "@/lib/generated/prisma";
 import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
 import axios from "axios";
@@ -15,15 +15,22 @@ import { useEffect, useRef, useState } from "react";
 
 interface ContinueWatchingProps {
   episodes: (Episode & {
-    thumbnailUrl?: string;
+    thumbnailImageUrl?: string;
     duration?: number;
     seasonId: string;
   })[];
+  seriesId: string;
+  seasonId: string;
+  episodeId: string;
 }
 
-export function ContinueWatching({}: ContinueWatchingProps) {
+export function ContinueWatching({
+  seriesId,
+  seasonId,
+  episodeId,
+}: ContinueWatchingProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const user = useUser();
+  const {user} = useAuth();
   const [scrollPosition, setScrollPosition] = useState(0);
   const [history, setHistory] = useState<
     (WatchHistory & { episode: Episode & { season: Season }; series: Series })[]
@@ -40,7 +47,9 @@ export function ContinueWatching({}: ContinueWatchingProps) {
 
       try {
         setLoading(true);
-        const response = await axios.get("/api/watch-history");
+        const response = await axios.get(
+          `/api/series/${seriesId}/season/${seasonId}/episode/${episodeId}/watch-history`
+        );
 
         const data = response.data;
         setHistory(data);
@@ -53,7 +62,7 @@ export function ContinueWatching({}: ContinueWatchingProps) {
     };
 
     fetchHistory();
-  }, [user?.id]);
+  }, [user?.id, seriesId, seasonId, episodeId]);
 
   if (loading) {
     return (
@@ -163,7 +172,7 @@ export function ContinueWatching({}: ContinueWatchingProps) {
           {history.map((item) => (
             <div
               key={item.id}
-              className="flex-shrink-0 w-48 sm:w-56 md:w-64 lg:w-72"
+              className="shrink-0 w-48 sm:w-56 md:w-64 lg:w-72"
             >
               <Card className="overflow-hidden bg-transparent border-0 group/card gap-0">
                 <div className="relative aspect-video overflow-hidden rounded-md">

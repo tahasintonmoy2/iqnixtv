@@ -1,18 +1,18 @@
 "use client";
 
-import type React from "react";
-import { useState, useRef, useEffect } from "react";
-import {
-  Play,
-  Pause,
-  Volume2,
-  VolumeX,
-  Maximize,
-  Minimize,
-} from "lucide-react";
-import { formatTime } from "@/lib/video-player-utils";
-import { ProgressPreview } from "./progress-preview";
 import { cn } from "@/lib/utils";
+import { formatTime } from "@/lib/video-player-utils";
+import {
+    Maximize,
+    Minimize,
+    Pause,
+    Play,
+    Volume2,
+    VolumeX,
+} from "lucide-react";
+import type React from "react";
+import { useEffect, useRef, useState } from "react";
+import { ProgressPreview } from "./progress-preview";
 
 export interface PlayerControlsProps {
   isPlaying: boolean;
@@ -21,7 +21,7 @@ export interface PlayerControlsProps {
   volume: number;
   isMuted: boolean;
   isFullscreen: boolean;
-  thumbnailUrl: string;
+  thumbnailImageUrl: string;
   onPlayPause: () => void;
   onSeek: (time: number) => void;
   onVolumeChange: (volume: number) => void;
@@ -42,7 +42,7 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({
   volume,
   isMuted,
   isFullscreen,
-  thumbnailUrl,
+  thumbnailImageUrl,
   onPlayPause,
   onSeek,
   onVolumeChange,
@@ -111,7 +111,7 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({
         <ProgressPreview
           duration={duration}
           currentTime={currentTime}
-          thumbnailUrl={thumbnailUrl}
+          thumbnailImageUrl={thumbnailImageUrl}
           onSeek={onSeek}
         />
       </div>

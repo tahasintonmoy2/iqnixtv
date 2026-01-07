@@ -1,9 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useUser } from "./use-user";
+import { useAuth } from "@/contexts/auth-context";
 import { Subscription } from "@/lib/generated/prisma";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export function useSubscription() {
-  const user = useUser();
+  const {user} = useAuth();
   const queryClient = useQueryClient();
 
   const {

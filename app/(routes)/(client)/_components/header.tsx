@@ -76,7 +76,7 @@ export const Header = async () => {
               return {
                 ...episode,
                 duration: asset.data.duration,
-                thumbnailUrl: `https://image.mux.com/${muxData.playbackId}/thumbnail.jpg`,
+                thumbnailImageUrl: `https://image.mux.com/${muxData.playbackId}/thumbnail.jpg`,
                 seriesId: content[0].id,
                 seasonId: season.id, // Preserve the seasonId
               };
@@ -85,7 +85,7 @@ export const Header = async () => {
             return {
               ...episode,
               duration: 0,
-              thumbnailUrl: "",
+              thumbnailImageUrl: "",
               seriesId: content[0].id,
               seasonId: season.id, // Preserve the seasonId
             };

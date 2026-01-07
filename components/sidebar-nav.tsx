@@ -11,13 +11,13 @@ import {
   Settings, Tags,
   Upload,
   User,
-  Users
+  Users,
+  Video,
 } from "lucide-react";
 
-import { SidebarItem } from "./sidebar-item";
 import { cn } from "@/lib/utils";
-import { useMobile } from "@/hooks/use-mobile";
 import { usePathname } from "next/navigation";
+import { SidebarItem } from "./sidebar-item";
 
 const routes = [
   {
@@ -34,6 +34,11 @@ const routes = [
     label: "Movies",
     icon: Film,
     href: "/studio/movies"
+  },
+  {
+    label: "Trailers",
+    icon: Video,
+    href: "/studio/trailers"
   },
   {
     label: "Cast",
@@ -83,11 +88,10 @@ const routes = [
 ]
 
 export const SidebarRoutes = () => {
-  const isMobile = useMobile();
   const pathname = usePathname();
 
   return (
-    <div className={cn("flex-col w-full", isMobile ? "hidden" : "flex")}>
+    <div className={cn("flex-col w-full studio-sidebar")}>
       {routes.map((route) => (
         <SidebarItem
           key={route.href}

@@ -21,7 +21,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreatePlaylistModal } from "@/hooks/use-create-playlist-modal";
 import { useMobile } from "@/hooks/use-mobile";
 import { Playlist } from "@/lib/generated/prisma";
 import {
@@ -52,7 +51,6 @@ export function PlaylistsSection({
 }: PlaylistsProps) {
   const [playlists, setPlaylists] = useState<Playlist[]>(playlistsData);
   const [searchQuery, setSearchQuery] = useState("");
-  const { onOpen } = useCreatePlaylistModal();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(
     null
@@ -158,7 +156,7 @@ export function PlaylistsSection({
             </div>
 
             {/* Create Playlist */}
-            <Button size="sm" onClick={onOpen}>
+            <Button size="sm">
               <Plus className="size-4" />
               {!isMobile && "Create"}
             </Button>
@@ -179,7 +177,7 @@ export function PlaylistsSection({
                 : "Create your first playlist to organize your favorite content"}
             </p>
             {!searchQuery && (
-              <Button variant="secondary" onClick={onOpen}>
+              <Button variant="secondary">
                 <Plus className="size-4 mr-2" />
                 Create
               </Button>

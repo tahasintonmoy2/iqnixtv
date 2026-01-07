@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useUser } from "@/hooks/use-user";
+import { useAuth } from "@/contexts/auth-context";
 import { POLAR_PRODUCTS, SubscriptionTier } from "@/lib/polar";
 import { Check, Crown, Star, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -16,7 +16,7 @@ interface SubscriptionManagementProps {
 
 export function SubscriptionManagement({ currentTier = "FREE", isActive = false }: SubscriptionManagementProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const user = useUser();
+  const {user} = useAuth();
   const router = useRouter();
 
   const handleSubscribe = async (tier: SubscriptionTier) => {

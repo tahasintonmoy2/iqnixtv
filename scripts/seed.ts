@@ -6,7 +6,6 @@ async function main() {
   try {
     await databse.ageRating.createMany({
       data: [
-        { name: "All Ages" },
         { name: "7+" },
         { name: "13+" },
         { name: "16+" },

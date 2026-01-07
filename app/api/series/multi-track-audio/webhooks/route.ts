@@ -1,0 +1,96 @@
+import { currentUser } from "@/lib/auth";
+import { db } from "@/lib/db";
+import crypto from "crypto";
+import { NextResponse } from "next/server";
+
+async function getRawBody(req: Request): Promise<Buffer> {
+  const array = await req.arrayBuffer();
+  return Buffer.from(array);
+}
+
+function verifyMuxSignature(rawBody: Buffer, signature: string | null) {
+  if (!signature) return false;
+
+  const [algo, hash] = signature.split("=");
+  const expectedHash = crypto
+    .createHmac(algo, process.env.MUX_TOKEN_SECRET!)
+    .update(rawBody)
+    .digest("hex");
+
+  return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(expectedHash));
+}
+
+export async function POST(req: Request) {
+  try {
+    const rawBody = await getRawBody(req);
+    const user = await currentUser();
+
+    if (!user || user.role !== "ADMIN") {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    const signature = req.headers.get("mux-signature");
+
+    if (!verifyMuxSignature(rawBody, signature)) {
+      return NextResponse.json(
+        { error: "Invalid mux signature" },
+        { status: 401 }
+      );
+    }
+
+    const body = JSON.parse(rawBody.toString());
+    const { type, data } = body;
+
+    if (type === "video.asset.track.ready") {
+      const {
+        id: muxTrackId,
+        asset_id: muxAssetId,
+        language_code,
+        name,
+        url,
+      } = data;
+
+      if (!muxAssetId) {
+        return NextResponse.json("");
+      }
+
+      console.log("Audio track is ready:", muxTrackId);
+
+      // Find the muxData by assetId
+      const muxData = await db.muxData.findFirst({
+        where: { assetId: muxAssetId },
+      });
+
+      if (!muxData) {
+        console.error("MuxData not found for assetId:", muxAssetId);
+        return NextResponse.json(
+          { error: "MuxData not found" },
+          { status: 404 }
+        );
+      }
+
+      await db.audioTrack.upsert({
+        where: { muxTrackId },
+        update: {
+          url,
+          status: "ready",
+        },
+        create: {
+          muxTrackId,
+          muxDataId: muxData.id,
+          episodeId: muxData.episodeId!,
+          languageCode: language_code ?? "ko",
+          name: name ?? "Audio",
+          url,
+          status: "ready",
+          type: "alternate",
+        },
+      });
+    }
+
+    return NextResponse.json({ received: true }, { status: 200 });
+  } catch (error) {
+    console.error("[MUX_WEBHOOK_POST]", error);
+    return new NextResponse("Internal Error", { status: 500 });
+  }
+}

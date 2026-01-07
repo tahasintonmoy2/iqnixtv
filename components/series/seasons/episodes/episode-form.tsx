@@ -2,13 +2,14 @@
 
 import { AgeRatingForm } from "@/app/(routes)/(admin)/studio/(dashboard)/(routes)/series/[seriesId]/seasons/[seasonId]/episodes/[episodeId]/_components/age-rating-form";
 import { EpisodeAccessForm } from "@/app/(routes)/(admin)/studio/(dashboard)/(routes)/series/[seriesId]/seasons/[seasonId]/episodes/[episodeId]/_components/episode-access-form";
+import { EpisodeAudioTrackForm } from "@/app/(routes)/(admin)/studio/(dashboard)/(routes)/series/[seriesId]/seasons/[seasonId]/episodes/[episodeId]/_components/episode-audio-track-form";
 import { EpisodeDescriptionForm } from "@/app/(routes)/(admin)/studio/(dashboard)/(routes)/series/[seriesId]/seasons/[seasonId]/episodes/[episodeId]/_components/episode-description-form";
 import { EpisodeNumberForm } from "@/app/(routes)/(admin)/studio/(dashboard)/(routes)/series/[seriesId]/seasons/[seasonId]/episodes/[episodeId]/_components/episode-number-form";
 import { EpisodeReleaseForm } from "@/app/(routes)/(admin)/studio/(dashboard)/(routes)/series/[seriesId]/seasons/[seasonId]/episodes/[episodeId]/_components/episode-release-form";
+import { EpisodeSubtitlesForm } from "@/app/(routes)/(admin)/studio/(dashboard)/(routes)/series/[seriesId]/seasons/[seasonId]/episodes/[episodeId]/_components/episode-subtitles-form";
 import { EpisodeTitleForm } from "@/app/(routes)/(admin)/studio/(dashboard)/(routes)/series/[seriesId]/seasons/[seasonId]/episodes/[episodeId]/_components/episode-title-form";
 import { EpisodeVideoForm } from "@/app/(routes)/(admin)/studio/(dashboard)/(routes)/series/[seriesId]/seasons/[seasonId]/episodes/[episodeId]/_components/episode-video-form";
 import { SelectSeasonForm } from "@/app/(routes)/(admin)/studio/(dashboard)/(routes)/series/[seriesId]/seasons/[seasonId]/episodes/[episodeId]/_components/select-season-form";
-import { Badge } from "@/components/ui/badge";
 import Banner from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,13 +29,12 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Label } from "@/components/ui/label";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Episode } from "@/lib/generated/prisma";
+import { AudioTrack, Episode, SubtitleTrack } from "@/lib/generated/prisma";
 import { zodResolver } from "@hookform/resolvers/zod";
 import axios from "axios";
-import { Globe, Lock, Plus, X } from "lucide-react";
+import { Globe, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -58,6 +58,8 @@ type EpisodeFormValues = z.infer<typeof episodeFormSchema>;
 
 interface EpisodeFormProps {
   episode: Episode;
+  subtitles: SubtitleTrack[];
+  audioTrack: AudioTrack[];
   seasonId: string;
   seriesId: string;
   seasonOptions: { value: string; name: string; seasonNumber: string }[];
@@ -66,6 +68,8 @@ interface EpisodeFormProps {
 
 export function EpisodeForm({
   episode,
+  subtitles,
+  audioTrack,
   seasonOptions,
   ageRatingOptions,
   seriesId,
@@ -147,45 +151,45 @@ export function EpisodeForm({
 
   return (
     <>
-    <div className="flex flex-col items-end mb-4">
-      {!episode.isPublished && (
-        <Banner
-          variant="warning"
-          label="This episode is now unpublished. It will not be visible in the season"
-        />
-      )}
-      {episode.isPublished && (
-        <Banner
-          variant="success"
-          label="This episode is now published. It will be visible in the season"
-        />
-      )}
-      <Button onClick={onSubmit} disabled={!isComplete} >
-        {episode.isPublished ? (
-          <>
-          {isLoading ? (
-            <div className="loader"></div>
-          ): (
-            <div className="flex items-center gap-x-2">
-              <Lock className="size-4"/>
-              Unpublic
-            </div>
-          )}
-          </>
-        ): (
-          <>
-          {isLoading ? (
-            <div className="loader"></div>
-          ): (
-            <div className="flex items-center gap-x-2">
-              <Globe className="size-4"/>
-              Public
-            </div>
-          )}
-          </>
+      <div className="flex flex-col items-end mb-4">
+        {!episode.isPublished && (
+          <Banner
+            variant="warning"
+            label="This episode is now unpublished. It will not be visible in the season"
+          />
         )}
-      </Button>
-    </div>
+        {episode.isPublished && (
+          <Banner
+            variant="success"
+            label="This episode is now published. It will be visible in the season"
+          />
+        )}
+        <Button onClick={onSubmit} disabled={!isComplete}>
+          {episode.isPublished ? (
+            <>
+              {isLoading ? (
+                <div className="loader"></div>
+              ) : (
+                <div className="flex items-center gap-x-2">
+                  <Lock className="size-4" />
+                  Unpublic
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              {isLoading ? (
+                <div className="loader"></div>
+              ) : (
+                <div className="flex items-center gap-x-2">
+                  <Globe className="size-4" />
+                  Public
+                </div>
+              )}
+            </>
+          )}
+        </Button>
+      </div>
       <Card className="mb-4">
         <CardHeader className="pt-4">
           <CardTitle>
@@ -273,53 +277,19 @@ export function EpisodeForm({
 
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium">
-                        Audio Tracks
-                      </Label>
-                      <div className="rounded-lg border">
-                        <div className="flex items-center justify-between p-4">
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium">
-                              English (Original)
-                            </span>
-                            <Badge variant="outline">Default</Badge>
-                          </div>
-                          <Button variant="ghost" size="icon">
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="border-t p-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {}}
-                          >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Audio Track
-                          </Button>
-                        </div>
-                      </div>
+                      <EpisodeAudioTrackForm
+                        initialData={audioTrack}
+                        episodeId={episode.id}
+                        seriesId={seriesId}
+                        seasonId={seasonId}
+                      />
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium">Subtitles</Label>
-                      <div className="rounded-lg border">
-                        <div className="flex items-center justify-between p-4">
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium">English</span>
-                            <Badge variant="outline">SRT</Badge>
-                          </div>
-                          <Button variant="ghost" size="icon">
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="border-t p-4">
-                          <Button variant="outline" size="sm">
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Subtitle
-                          </Button>
-                        </div>
-                      </div>
+                      <EpisodeSubtitlesForm
+                        initialData={subtitles}
+                        episodeId={episode.id}
+                      />
                     </div>
                   </div>
                 </div>

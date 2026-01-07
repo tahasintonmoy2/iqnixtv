@@ -1,6 +1,5 @@
 "use client";
 
-import { signup } from "@/actions/sign-up";
 import { FormError } from "@/components/form-error";
 import { FormSuccess } from "@/components/form-success";
 import { Button } from "@/components/ui/button";
@@ -20,21 +19,23 @@ import {
   InputOTPSeparator,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
+import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
 import { SignUpSchema } from "@/schemas";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { CardWrapper } from "./card-wrapper";
 
 export const SignUpForm = () => {
-  const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | undefined>("");
   const [success, setSuccess] = useState<string | undefined>("");
   const [isShow, setIsShow] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isShowOTP, setIsShowOTP] = useState(false);
+  const { signup, loading } = useAuth();
 
   const form = useForm<z.infer<typeof SignUpSchema>>({
     resolver: zodResolver(SignUpSchema),
@@ -48,26 +49,26 @@ export const SignUpForm = () => {
 
   const { isSubmitting, errors } = form.formState;
 
-  const onSubmit = (values: z.infer<typeof SignUpSchema>) => {
-    setError("");
-    setSuccess("");
-
-    startTransition(() => {
-      signup(values).then((data) => {
-        if (data?.success) {
-          if (data.success.includes("Confirmation email sent")) {
-            setIsShowOTP(true);
-            setSuccess(data.success);
-          } else {
-            setSuccess(data.success);
-            form.reset();
-          }
-        }
-        if (data?.error) {
-          setError(data.error);
-        }
-      });
-    });
+  const onSubmit = async (values: z.infer<typeof SignUpSchema>) => {
+    try {
+      await signup(
+        values.email,
+        values.password,
+        values.firstName,
+        values.lastName
+      );
+      form.reset();
+      setSuccess(
+        "Sign up successful! Please check your email for the verification code."
+      );
+    } catch (error) {
+      console.log(error);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong. Please try again."
+      );
+    }
   };
 
   return (
@@ -128,7 +129,7 @@ export const SignUpForm = () => {
                       <FormLabel>First name</FormLabel>
                       <FormControl>
                         <Input
-                          disabled={isPending || isSubmitting}
+                          disabled={loading || isSubmitting}
                           className={cn(
                             "w-full my-2",
                             errors.firstName &&
@@ -152,7 +153,7 @@ export const SignUpForm = () => {
                       <FormLabel>Last name</FormLabel>
                       <FormControl>
                         <Input
-                          disabled={isPending || isSubmitting}
+                          disabled={loading || isSubmitting}
                           className={cn(
                             "w-full my-2",
                             errors.lastName &&
@@ -177,7 +178,7 @@ export const SignUpForm = () => {
                     <FormLabel>Email</FormLabel>
                     <FormControl>
                       <Input
-                        disabled={isPending || isSubmitting}
+                        disabled={loading || isSubmitting}
                         className={cn(
                           "w-full my-2",
                           errors.email &&
@@ -202,7 +203,7 @@ export const SignUpForm = () => {
                     <FormControl>
                       <div className="flex items-center relative">
                         <Input
-                          disabled={isPending || isSubmitting}
+                          disabled={loading || isSubmitting}
                           className={cn(
                             "w-full my-2",
                             errors.password &&
@@ -225,7 +226,7 @@ export const SignUpForm = () => {
                         </button>
                       </div>
                     </FormControl>
-                    <FormMessage className="font-semibold text-red-600" />
+                    <FormMessage className="text-red-600" />
                   </FormItem>
                 )}
               />
@@ -239,7 +240,7 @@ export const SignUpForm = () => {
             <Button
               className="w-full mt-3"
               type="submit"
-              disabled={isPending || isSubmitting}
+              disabled={loading || isSubmitting}
             >
               {isShowOTP ? "Verify Email" : "Sign Up"}
             </Button>

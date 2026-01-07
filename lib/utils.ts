@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // Format time (seconds to MM:SS)
-export function formatTime(time: number) {
+export function formatDuration(time: number) {
   const hours = Math.floor(time / 3600);
   const minutes = Math.floor((time % 3600) / 60);
   const seconds = Math.floor(time % 60);
@@ -21,9 +21,10 @@ export function formatTime(time: number) {
 export function parseSubtitlesFromManifest(
   manifest: string,
   playbackId: string
-) {
-  const subtitles: Array<{ label: string; language: string; src: string }> = [];
+): SubtitleTrack[] {
+  const subtitles: SubtitleTrack[] = [];
   const lines = manifest.split("\n");
+  let id = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -43,9 +44,18 @@ export function parseSubtitlesFromManifest(
           : `https://stream.mux.com/${playbackId}/${uri}`;
 
         subtitles.push({
-          label,
+          id: id++,
+          active: false,
+          type: "subtitles",
           language,
           src,
+          label,
+          kind: "subtitles",
+          mimeType: "text/vtt",
+          primary: false,
+          roles: [],
+          forced: false,
+          originalTextId: null,
         });
       }
     }
@@ -75,7 +85,9 @@ export function createProxyVTTUrl(originalUrl: string): string {
   return `/api/vtt-proxy?url=${encodeURIComponent(originalUrl)}`;
 }
 
-export async function getMuxSubtitles(playbackId: string): Promise<SubtitleTrack[]> {
+export async function getMuxSubtitles(
+  playbackId: string
+): Promise<SubtitleTrack[]> {
   try {
     // Fetch the master playlist
     const manifestUrl = `https://stream.mux.com/${playbackId}.m3u8`;
@@ -84,25 +96,29 @@ export async function getMuxSubtitles(playbackId: string): Promise<SubtitleTrack
     });
 
     if (!response.ok) {
-      console.error(`Failed to fetch Mux manifest: ${response.status} ${response.statusText}`);
+      console.error(
+        `Failed to fetch Mux manifest: ${response.status} ${response.statusText}`
+      );
       return [];
     }
 
     const manifestText = await response.text();
     const subtitles = parseSubtitlesFromManifest(manifestText, playbackId);
 
-    console.log(`Found ${subtitles.length} subtitle tracks for playback ID: ${playbackId}`);
+    console.log(
+      `Found ${subtitles.length} subtitle tracks for playback ID: ${playbackId}`
+    );
     return subtitles;
   } catch (error) {
-    console.error('Error fetching Mux subtitles:', error);
+    console.error("Error fetching Mux subtitles:", error);
     return [];
   }
 }
 
 export async function validateVTTFile(url: string): Promise<boolean> {
   try {
-    const response = await fetch(url, { method: 'HEAD' });
-    
+    const response = await fetch(url, { method: "HEAD" });
+
     // Check if request was successful
     if (!response.ok) {
       console.error(`VTT file not accessible: ${url} (${response.status})`);
@@ -110,8 +126,12 @@ export async function validateVTTFile(url: string): Promise<boolean> {
     }
 
     // Check content type
-    const contentType = response.headers.get('content-type');
-    if (contentType && !contentType.includes('text/vtt') && !contentType.includes('text/plain')) {
+    const contentType = response.headers.get("content-type");
+    if (
+      contentType &&
+      !contentType.includes("text/vtt") &&
+      !contentType.includes("text/plain")
+    ) {
       console.warn(`Unexpected content-type for VTT: ${contentType}`);
     }
 
@@ -122,7 +142,9 @@ export async function validateVTTFile(url: string): Promise<boolean> {
   }
 }
 
-export async function validateSubtitles(subtitles: SubtitleTrack[]): Promise<SubtitleTrack[]> {
+export async function validateSubtitles(
+  subtitles: SubtitleTrack[]
+): Promise<SubtitleTrack[]> {
   const validatedSubtitles: SubtitleTrack[] = [];
 
   const validationPromises = subtitles.map(async (subtitle) => {
@@ -140,13 +162,39 @@ export async function validateSubtitles(subtitles: SubtitleTrack[]): Promise<Sub
   });
 
   const results = await Promise.all(validationPromises);
-  
+
   // Filter out null values
-  results.forEach(result => {
+  results.forEach((result) => {
     if (result) {
       validatedSubtitles.push(result);
     }
   });
 
   return validatedSubtitles;
+}
+
+export function formatTrackLabel(track: {
+  type: string;
+  name: string | null;
+  languageCode: string | null;
+}): string {
+  const trackName = track.name || "Unknown";
+
+  if (track.type === "primary") {
+    return `${trackName} (Original)`;
+  }
+
+  return trackName;
+}
+
+export function getTrackDisplayInfo(track: {
+  type: string;
+  name: string | null;
+  languageCode: string | null;
+}) {
+  return {
+    label: formatTrackLabel(track),
+    isPrimary: track.type === "primary",
+    showBadge: track.type === "primary",
+  };
 }

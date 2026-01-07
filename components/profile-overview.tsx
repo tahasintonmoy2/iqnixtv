@@ -6,13 +6,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useUser } from "@/hooks/use-user";
+import { useAuth } from "@/contexts/auth-context";
+import { Playlist } from "@/lib/generated/prisma";
+import { format } from "date-fns";
 import { Camera, Settings } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { WatchingHistory } from "./profile/watch-history";
-import { format } from "date-fns";
-import { Playlist } from "@/lib/generated/prisma";
 
 // Mock user data
 const mockUser = {
@@ -36,14 +36,14 @@ const mockUser = {
 };
 
 export const ProfileOverview = ({ playlists }: { playlists: Playlist[] }) => {
-  const user = useUser();
+  const {user} = useAuth();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   return (
     <div className="max-w-6xl mx-auto mt-12 space-y-6">
       {/* Profile Header */}
       <Card className="overflow-hidden">
-        <div className="relative h-32 bg-gradient-to-r from-primary/20 via-primary/10 to-transparent"></div>
+        <div className="relative h-32 bg-linear-to-r from-primary/20 via-primary/10 to-transparent"></div>
         <CardContent className="relative -mt-12 pb-6">
           <div className="flex flex-col md:flex-row items-start md:items-end gap-6">
             {/* Avatar */}
@@ -52,12 +52,12 @@ export const ProfileOverview = ({ playlists }: { playlists: Playlist[] }) => {
                 <AvatarImage
                   src={
                     user?.image ||
-                    `https://avatar.vercel.sh/${user?.firstName}.png`
+                    `https://avatar.vercel.sh/${user?.firstname}.png`
                   }
-                  alt={user?.firstName}
+                  alt={user?.firstname}
                 />
                 <AvatarFallback className="text-2xl font-bold">
-                  {user?.firstName
+                  {user?.firstname
                     .split(" ")
                     .map((n) => n[0])
                     .join("")}
@@ -80,7 +80,7 @@ export const ProfileOverview = ({ playlists }: { playlists: Playlist[] }) => {
             <div className="flex-1 space-y-2">
               <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
                 <h1 className="text-2xl md:text-3xl font-bold">
-                  {user?.firstName} {user?.lastName}
+                  {user?.firstname} {user?.lastname}
                 </h1>
                 <Badge variant="secondary" className="w-fit">
                   {mockUser.subscription.plan} Member

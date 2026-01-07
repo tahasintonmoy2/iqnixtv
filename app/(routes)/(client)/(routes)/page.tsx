@@ -35,7 +35,7 @@ export default async function Home() {
   // Add dynamic new release and popular content calculation to content
   const contentWithFlags = content.map((item) => {
     // Get all episodes from all seasons
-    const allEpisodes = item.seasons.flatMap((season) => season.episodes);
+    const allEpisodes = item?.seasons?.flatMap((season) => season.episodes ?? []);
 
     return {
       ...item,
@@ -48,14 +48,14 @@ export default async function Home() {
         isPopularContent(
           item.isPopular,
           item.viewsCount,
-          item.contentRating?.rating,
+          item.contentRating?.rating
         ),
     };
   });
 
   const episodes = await Promise.all(
-    contentWithFlags[0].seasons.flatMap((season) =>
-      season.episodes.map(async (episode) => {
+    (contentWithFlags[0]?.seasons?.flatMap((season) =>
+      (season.episodes ?? []).map(async (episode) => {
         const { muxData } = await getEpisode({
           episodeId: episode.id,
           seasonId: season.id,
@@ -68,18 +68,18 @@ export default async function Home() {
               method: "GET",
               headers: {
                 Authorization: `Basic ${Buffer.from(
-                  `${process.env.MUX_TOKEN_ID}:${process.env.MUX_TOKEN_SECRET}`,
+                  `${process.env.MUX_TOKEN_ID}:${process.env.MUX_TOKEN_SECRET}`
                 ).toString("base64")}`,
                 "Content-Type": "application/json",
               },
-            },
+            }
           );
 
           const asset = await response.json();
           return {
             ...episode,
             duration: asset.data.duration,
-            thumbnailUrl: `https://image.mux.com/${muxData.playbackId}/thumbnail.jpg`,
+            thumbnailImageUrl: `https://image.mux.com/${muxData.playbackId}/thumbnail.jpg`,
             seriesId: content[0].id,
             seasonId: season.id, // Preserve the seasonId
           };
@@ -88,12 +88,12 @@ export default async function Home() {
         return {
           ...episode,
           duration: 0,
-          thumbnailUrl: "",
+          thumbnailImageUrl: "",
           seriesId: content[0].id,
           seasonId: season.id, // Preserve the seasonId
         };
-      }),
-    ),
+      })
+    ) ?? [])
   );
 
   // Filter popular content
@@ -103,14 +103,14 @@ export default async function Home() {
       isPopularContent(
         item.isPopular,
         item.viewsCount,
-        item.contentRating?.rating,
-      ),
+        item.contentRating?.rating
+      )
   );
 
   return (
     <div>
       <div>
-        <div className="pt-16">
+        <div>
           <TrendingCarousel
             series={contentWithFlags.map((item) => ({
               ...item,
@@ -127,7 +127,14 @@ export default async function Home() {
         {/* Continue Watching Section - Below the carousel */}
         <div className="bg-background px-8 pt-6">
           <Suspense fallback={<RecommendationsLoading />}>
-            <ContinueWatching episodes={episodes} />
+            {episodes.length > 0 && (
+              <ContinueWatching
+                episodes={episodes}
+                seriesId={content[0]?.id}
+                seasonId={episodes[0]?.seasonId}
+                episodeId={episodes[0]?.id}
+              />
+            )}
           </Suspense>
         </div>
 
@@ -137,13 +144,13 @@ export default async function Home() {
 
         <div>
           <Suspense fallback={<RecommendationsLoading />}>
-            <CategoryRow content={contentWithFlags} title="New Releases" />
+            <CategoryRow contents={contentWithFlags} title="New Releases" />
           </Suspense>
         </div>
 
-        <div className="mt-8 mx-4">
+        <div>
           <Suspense fallback={<RecommendationsLoading />}>
-            <CategoryRow content={popularContent} title="Popular Dramas" />
+            <CategoryRow contents={popularContent} title="Popular Dramas" />
           </Suspense>
         </div>
       </div>

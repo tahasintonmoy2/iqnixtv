@@ -12,20 +12,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useUser } from "@/hooks/use-user";
 
-import { signOut } from "@/actions/sign-out";
+import { useAuth } from "@/contexts/auth-context";
 import Link from "next/link";
 
 export const UserProfileButton = () => {
-  const user = useUser();
+  const { user, logout } = useAuth();
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Avatar>
           <AvatarImage
-            src={user?.image || `https://avatar.vercel.sh/${user?.name}.png`}
+            src={
+              user?.image || `https://avatar.vercel.sh/${user?.firstName}.png`
+            }
           />
         </Avatar>
       </DropdownMenuTrigger>
@@ -66,7 +67,7 @@ export const UserProfileButton = () => {
           )}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => signOut()}>
+        <DropdownMenuItem onClick={() => logout()}>
           <LogOut className="size-4" />
           <span>Log out</span>
         </DropdownMenuItem>

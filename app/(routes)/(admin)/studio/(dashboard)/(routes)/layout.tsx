@@ -29,7 +29,7 @@ const layout = async ({
       </div>
       
       {/* <CommandBar items={courses} /> */}
-      <main className="md:pl-56 pt-[80px] lg:mx-4 h-full">
+      <main className="md:pl-56 pt-[80px] mx-4 h-full">
         <ModalProvider />
         {children}
       </main>

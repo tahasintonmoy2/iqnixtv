@@ -4,77 +4,40 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Episode, Season, Series } from "@/lib/generated/prisma";
 import { formatDuration } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Play } from "lucide-react";
+import { Play } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
 
 type EpisodeSliderProps = {
   series: Series & {
     seasons: Season[];
     episodes: (Episode & {
-      thumbnailUrl?: string;
+      thumbnailImageUrl?: string;
       duration?: number;
     })[];
   };
 };
 
 export function EpisodeSlider({ series }: EpisodeSliderProps) {
-  const [scrollPosition, setScrollPosition] = useState(0);
-
-  const scroll = (direction: "left" | "right") => {
-    const container = document.getElementById("episode-container");
-    if (!container) return;
-
-    const scrollAmount = 320; // Approximate width of an episode card
-    const maxScroll = container.scrollWidth - container.clientWidth;
-
-    if (direction === "left") {
-      const newPosition = Math.max(0, scrollPosition - scrollAmount);
-      setScrollPosition(newPosition);
-      container.scrollTo({ left: newPosition, behavior: "smooth" });
-    } else {
-      const newPosition = Math.min(maxScroll, scrollPosition + scrollAmount);
-      setScrollPosition(newPosition);
-      container.scrollTo({ left: newPosition, behavior: "smooth" });
-    }
-  };
-
   return (
     <div className="relative">
-      {series.episodes.length > 1 && (
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 z-10">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-10 w-10 rounded-full bg-background/80 backdrop-blur-sm"
-            onClick={() => scroll("left")}
-            disabled={scrollPosition <= 0}
-          >
-            <ChevronLeft className="h-6 w-6" />
-            <span className="sr-only">Scroll left</span>
-          </Button>
-        </div>
-      )}
-
       {series.episodes.length === 0 ? (
         <div>There is no episode in this series</div>
       ) : (
         <div
-          id="episode-container"
           className="flex overflow-hidden scrollbar-hide gap-4 py-4 px-2"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          style={{ scrollbarWidth: "none" }}
         >
           {series?.episodes?.map((episode) => (
             <Link
               key={episode.id}
               href={`/play/${episode?.seasonId}/${episode.id}`}
-              className="flex-shrink-0 w-[300px]"
+              className="shrink-0 w-[300px]"
             >
               <Card className="overflow-hidden border-0 gap-2 bg-transparent">
                 <div className="relative">
                   <Image
-                    src={episode.thumbnailUrl || "/placeholder.svg"}
+                    src={episode.thumbnailImageUrl || "/placeholder.svg"}
                     alt={episode.name}
                     width={300}
                     height={168}
@@ -107,26 +70,6 @@ export function EpisodeSlider({ series }: EpisodeSliderProps) {
           ))}
         </div>
       )}
-
-      {series.episodes.length > 1 && (
-        <div className="absolute right-0 top-1/2 -translate-y-1/2 z-10">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-10 w-10 rounded-full bg-background/80 backdrop-blur-sm"
-            onClick={() => scroll("right")}
-          >
-            <ChevronRight className="h-6 w-6" />
-            <span className="sr-only">Scroll right</span>
-          </Button>
-        </div>
-      )}
-
-      <style jsx>{`
-        #episode-container::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
     </div>
   );
 }

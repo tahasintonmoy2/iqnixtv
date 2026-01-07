@@ -247,10 +247,10 @@ export function SearchDropdown() {
     <div ref={searchRef} className="relative">
       <div className="flex items-center">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 size-5 text-muted-foreground" />
           <Input
             ref={inputRef}
-            placeholder="Search movies, dramas, actresses..."
+            placeholder="Search movies, dramas, variety shows..."
             value={query}
             onChange={(e) => handleInputChange(e.target.value)}
             onFocus={handleInputFocus}
@@ -261,7 +261,7 @@ export function SearchDropdown() {
                 clearSearch();
               }
             }}
-            className="w-[250px] md:w-[350px] pl-10 pr-10 backdrop-blur-sm border-muted/50 focus:border-primary/50"
+            className="w-[250px] md:w-[350px] pl-10 pr-10 backdrop-blur-sm focus:border-primary/50"
           />
           {query && (
             <Button

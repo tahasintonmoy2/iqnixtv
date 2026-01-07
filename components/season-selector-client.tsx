@@ -46,7 +46,7 @@ export function SeasonSelectorClient({
             : `${filteredSeasons[0]?.name} ${filteredSeasons[0]?.seasonNumber}`}
         </SelectValue>
       </SelectTrigger>
-      <SelectContent align="start">
+      <SelectContent align="end">
         {filteredSeasons.map((season) => (
           <SelectItem
             key={season.id}

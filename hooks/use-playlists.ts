@@ -12,11 +12,11 @@ export const playlistKeys = {
   detail: (id: string) => [...playlistKeys.details(), id] as const,
 };
 
-export const usePlaylists = () => {
+export const usePlaylists = ({ seriesId }: { seriesId: string }) => {
   return useQuery({
     queryKey: playlistKeys.lists(),
     queryFn: async (): Promise<Playlist[]> => {
-      const response = await axios.get("/api/playlists");
+      const response = await axios.get(`/api/series/${seriesId}/playlists`);
       return response.data;
     },
     staleTime: 5 * 60 * 1000,
@@ -38,7 +38,7 @@ export const useCreatePlaylist = () => {
       description: string;
       seriesId?: string;
     }): Promise<Playlist> => {
-      const response = await axios.post("/api/playlists", {
+      const response = await axios.post(`/api/series/${seriesId}/playlists`, {
         name,
         description,
         seriesId,
@@ -97,9 +97,9 @@ export const useAddToPlaylist = () => {
 };
 
 // Quick add to "My List" playlist
-export const useAddToMyList = () => {
+export const useAddToMyList = ({seriesId}: {seriesId: string}) => {
   const createPlaylist = useCreatePlaylist();
-  const { data: playlists } = usePlaylists();
+  const { data: playlists } = usePlaylists({seriesId});
   const router = useRouter();
 
   return useMutation({
@@ -111,9 +111,20 @@ export const useAddToMyList = () => {
 
       if (myListPlaylist) {
         // Add to existing "My List" playlist
-        await axios.post(`/api/playlists/${myListPlaylist.id}`, {
-          seriesId,
-        });
+        await axios.patch(
+          `/api/series/${seriesId}/playlists/${myListPlaylist.id}`,
+          {
+            name: myListPlaylist.name,
+            description: myListPlaylist.description || "",
+            itemCount: {
+              increment: 1,
+            },
+            duration: 0,
+            userId: myListPlaylist.userId,
+            lastUpdatedAt: new Date(),
+            seriesId,
+          }
+        );
       } else {
         // Create new "My List" playlist with the series
         await createPlaylist.mutateAsync({

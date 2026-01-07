@@ -3,15 +3,14 @@ import {
   Container,
   Head,
   Heading,
+  Hr,
   Html,
   Img,
+  Link,
+  Preview,
   Section,
   Text,
-  Hr,
-  Preview,
-  Link,
 } from "@react-email/components";
-import * as React from "react";
 
 interface ResetPasswordCodeEmailProps {
   validationCode?: string;
@@ -40,13 +39,9 @@ export const ResetPasswordCodeEmail = ({
         </Heading>
         <Text>🪄 Enter the following code to finish reset password</Text>
         <Section style={body}>
-          <Section style={codeContainer}>
-            <Text style={code}>{validationCode}</Text>
-          </Section>
-
           <Text style={paragraph}>
-            <Link style={link} href={`${baseUrl}/account-verification?token=${validationCode}`}>
-              Your verification link
+            <Link style={link} href={`${baseUrl}/auth/reset-password?token=${validationCode}`}>
+              Reset your password
             </Link>
           </Text>
           <Text style={paragraph}>
@@ -121,27 +116,4 @@ const footer = {
   color: "#8898aa",
   fontSize: "12px",
   marginLeft: "4px",
-};
-
-const codeContainer = {
-  background: "rgba(0,0,0,.05)",
-  borderRadius: "4px",
-  margin: "16px auto 14px",
-  verticalAlign: "middle",
-  width: "280px",
-};
-
-const code = {
-  color: "#000",
-  display: "inline-block",
-  fontFamily: "Arial, Helvetica, sans-serif",
-  fontSize: "32px",
-  fontWeight: 700,
-  letterSpacing: "6px",
-  lineHeight: "40px",
-  paddingBottom: "8px",
-  paddingTop: "8px",
-  margin: "0 auto",
-  width: "100%",
-  textAlign: "center" as const,
 };

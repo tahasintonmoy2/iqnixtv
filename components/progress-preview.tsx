@@ -1,13 +1,13 @@
 "use client";
 
 import type React from "react";
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
 
 export interface ProgressPreviewProps {
   duration: number;
   currentTime: number;
   onSeek: (time: number) => void;
-  thumbnailUrl?: string;
+  thumbnailImageUrl?: string;
 }
 
 /**
@@ -18,7 +18,7 @@ export const ProgressPreview: React.FC<ProgressPreviewProps> = ({
   duration,
   currentTime,
   onSeek,
-  thumbnailUrl,
+  thumbnailImageUrl,
 }) => {
   const [showPreview, setShowPreview] = useState(false);
   const [previewTime, setPreviewTime] = useState(0);
@@ -100,10 +100,10 @@ export const ProgressPreview: React.FC<ProgressPreviewProps> = ({
           className="absolute bottom-full mb-2 -translate-x-1/2 bg-black/90 px-2 py-1 rounded text-white text-xs whitespace-nowrap pointer-events-none"
           style={{ left: `${previewPosition}%` }}
         >
-          {thumbnailUrl && (
+          {thumbnailImageUrl && (
             <div className="mt-1 w-24 h-14 bg-gray-700 rounded overflow-hidden">
               <img
-                src={thumbnailUrl || "/placeholder.svg"}
+                src={thumbnailImageUrl || "/placeholder.svg"}
                 alt="Preview"
                 className="w-full h-full object-cover"
               />

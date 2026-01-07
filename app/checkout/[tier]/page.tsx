@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useUser } from "@/hooks/use-user";
+import { useAuth } from "@/contexts/auth-context";
 import { POLAR_PRODUCTS, SubscriptionTier } from "@/lib/polar";
 import axios from "axios";
 import { ArrowLeft, Check, Loader2, Lock } from "lucide-react";
@@ -15,7 +15,7 @@ import { toast } from "sonner";
 export default function CheckoutPage() {
   const params = useParams();
   const tier = params.tier as SubscriptionTier;
-  const user = useUser();
+  const {user} = useAuth();
   const userId = user?.id
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -148,7 +148,7 @@ export default function CheckoutPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Name:</span>
-                    <span>{user?.firstName} {user?.lastName}</span>
+                    <span>{user?.firstname} {user?.lastname}</span>
                   </div>
                 </div>
               </div>

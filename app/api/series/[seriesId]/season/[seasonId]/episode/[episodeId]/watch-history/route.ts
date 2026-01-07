@@ -2,16 +2,24 @@ import { currentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ seriesId: string; episodeId: string }> }
+) {
   try {
     const user = await currentUser();
+    const { seriesId, episodeId } = await params;
 
     if (!user?.id) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
     const history = await db.watchHistory.findMany({
-      where: { userId: user.id },
+      where: {
+        userId: user.id,
+        seriesId,
+        episodeId,
+      },
       include: {
         episode: {
           include: {

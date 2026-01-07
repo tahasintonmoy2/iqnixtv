@@ -20,23 +20,23 @@ import {
   Episode,
   Genre,
   Season,
-  Series,
 } from "@/lib/generated/prisma";
 import { Plus, Upload } from "lucide-react";
 import { ContentAction } from "./content-action";
 import { ContentAgeRatingForm } from "./content-age-rating-form";
+import { SeriesBannerImageForm } from "./content-banner-image-form";
 import { SeriesDescriptionForm } from "./content-description-form";
 import { SeriesImageForm } from "./content-image-form";
 import { ContentLanguageForm } from "./content-language-select-form";
+import { ContentPopularForm } from "./content-popular-form";
 import { SeriesRegionForm } from "./content-region-form";
 import { SeriesReleaseForm } from "./content-release-form";
 import { ContentGenresForm } from "./content-select-genre-form";
+import { SeriesStarringCastDescriptionForm } from "./content-starring-cast-description-form";
 import { SeriesTitleForm } from "./content-title-form";
-import { SeriesBannerImageForm } from "./content-banner-image-form";
-import { ContentPopularForm } from "./content-popular-form";
 
 interface ContentFormProps {
-  series: Series;
+  seriesId: string;
   seasons: Season[];
   episodes: Episode[];
   categories: Genre[];
@@ -46,13 +46,13 @@ interface ContentFormProps {
 
 export async function ContentForm({
   categories,
-  series,
   contentLanguage,
   ageRatingOptions,
+  seriesId,
 }: ContentFormProps) {
   const content = await db.series.findUnique({
     where: {
-      id: series.id,
+      id: seriesId,
     },
     include: {
       seasons: true,
@@ -71,6 +71,7 @@ export async function ContentForm({
     content.releaseDate,
     content.bannerImageUrl,
     content.castDescription,
+    content.starringCastDescription,
     content.genreId,
     content.contentLanguageId,
     content.seasons.some((season) => season.isPublished),
@@ -152,18 +153,24 @@ export async function ContentForm({
 
                   <SeriesCastDescriptionForm initialData={content} />
                 </div>
-                <ContentLanguageForm
-                  initialData={{
-                    ...content,
-                    contentLanguageId: content.contentLanguageId ?? null,
-                  }}
-                  seriesId={content.id}
-                  options={contentLanguage.map((language) => ({
-                    name: language.name,
-                    value: language.id,
-                  }))}
-                />
-                <ContentPopularForm initialData={content}/>
+                <div>
+                  <ContentLanguageForm
+                    initialData={{
+                      ...content,
+                      contentLanguageId: content.contentLanguageId ?? null,
+                    }}
+                    seriesId={content.id}
+                    options={contentLanguage.map((language) => ({
+                      name: language.name,
+                      value: language.id,
+                    }))}
+                  />
+                  <SeriesStarringCastDescriptionForm
+                    initialData={content}
+                    seriesId={seriesId}
+                  />
+                  <ContentPopularForm initialData={content} />
+                </div>
               </div>
             </TabsContent>
 

@@ -1,18 +1,18 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useUser } from "@/hooks/use-user";
+import { useAuth } from "@/contexts/auth-context";
+import { useMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { UserProfileButton } from "./auth/user-button";
 import Logo from "./logo";
 import { ThemeToggle } from "./theme-toggle";
-import { useMobile } from "@/hooks/use-mobile";
 
 export const Navbar = () => {
   const [isMounted, setIsMounted] = useState(false);
-  const user = useUser();
+  const {user} = useAuth();
 
   const isDesktop = useMobile();
 

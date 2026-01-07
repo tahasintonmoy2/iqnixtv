@@ -1,6 +1,6 @@
 "use client";
 
-import { useUser } from "@/hooks/use-user";
+import { useAuth } from "@/contexts/auth-context";
 import { POLAR_PRODUCTS } from "@/lib/polar";
 import Link from "next/link";
 import { Button } from "./ui/button";
@@ -10,7 +10,7 @@ interface SubscriptionButtonProps {
 }
 
 export default function SubscriptionButton({ isPro }: SubscriptionButtonProps) {
-  const user = useUser();
+  const {user} = useAuth();
 
   if (!user?.id) {
     // User is not logged in, don't render the button

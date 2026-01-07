@@ -18,7 +18,6 @@ export async function POST(req: Request) {
         name,
         description: description || "",
         itemCount: seriesId ? 1 : 0,
-        duration: 0,
         userId: user.id,
       },
     });
@@ -30,7 +29,6 @@ export async function POST(req: Request) {
             playlistId: playlist.id,
             seriesId,
             userId: user.id,
-            order: 0,
           },
         });
       } catch (error) {
@@ -45,24 +43,23 @@ export async function POST(req: Request) {
             { status: 400 }
           );
         }
-        throw error
+        throw error;
       }
     }
 
     return NextResponse.json(playlist);
   } catch (error) {
     console.error("[PLAYLISTS_POST]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return NextResponse.json("Internal Error", { status: 500 });
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function GET(req: Request) {
+export async function GET() {
   try {
     const user = await currentUser();
 
     if (!user?.id) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return NextResponse.json("Unauthorized", { status: 401 });
     }
 
     const playlists = await db.playlist.findMany({
@@ -84,6 +81,6 @@ export async function GET(req: Request) {
     return NextResponse.json(playlists);
   } catch (error) {
     console.error("[PLAYLISTS_GET]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return NextResponse.json("Internal Error", { status: 500 });
   }
 }

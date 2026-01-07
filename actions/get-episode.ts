@@ -18,6 +18,7 @@ export const getEpisode = async ({
       where: { id: episodeId },
       include: {
         season: true,
+        muxData: true
       },
     });
 

@@ -21,6 +21,25 @@ const EpsiodeIdPage = async ({ params }: EpsiodeIdPageProps) => {
     },
     include: {
       muxData: true,
+      subtitles: true,
+    },
+  });
+
+  const subtitles = await db.subtitleTrack.findMany({
+    where: {
+      episodeId,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  const audioTrack = await db.audioTrack.findMany({
+    where: {
+      episodeId,
+    },
+    orderBy: {
+      createdAt: "asc",
     },
   });
 
@@ -42,6 +61,8 @@ const EpsiodeIdPage = async ({ params }: EpsiodeIdPageProps) => {
     <div>
       <EpisodeForm
         episode={episode}
+        subtitles={subtitles}
+        audioTrack={audioTrack}
         seasonId={season.id}
         seriesId={seriesId}
         seasonOptions={[

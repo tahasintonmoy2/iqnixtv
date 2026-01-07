@@ -23,22 +23,23 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { useAuth } from "@/contexts/auth-context";
 import { useMobile } from "@/hooks/use-mobile";
 import { useWatchlistModal } from "@/hooks/use-watchlist-modal";
-import { Playlist, Series } from "@/lib/generated/prisma";
+import { Playlist, PlaylistContent, Series } from "@/lib/generated/prisma";
+import { zodResolver } from "@hookform/resolvers/zod";
+import axios from "axios";
 import { ListVideo, Plus } from "lucide-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
-import { Separator } from "../ui/separator";
-import { Input } from "../ui/input";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import z from "zod";
+import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import axios from "axios";
-import { useRouter } from "next/navigation";
+import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
+import { Separator } from "../ui/separator";
 
 const formSchema = z.object({
   name: z.string().min(1, {
@@ -48,16 +49,14 @@ const formSchema = z.object({
 
 interface PlaylistThumbnailProps {
   playlist: Playlist & {
-    contents: Array<{
-      series: Series;
-    }>;
+    series: Series[];
   };
   size?: number;
 }
 
 const PlaylistThumbnail = ({ playlist, size = 40 }: PlaylistThumbnailProps) => {
-  const seriesImages = playlist.contents
-    .map((content) => content.series.thumbnailImageUrl)
+  const seriesImages = playlist.series
+    .map((content) => content.thumbnailImageUrl)
     .filter(Boolean)
     .slice(0, 4);
 
@@ -106,15 +105,16 @@ const PlaylistThumbnail = ({ playlist, size = 40 }: PlaylistThumbnailProps) => {
 
 interface AddWatchlistModalProps {
   playlists: (Playlist & {
-    contents: Array<{
-      series: Series;
-    }>;
+    series: Series[];
+    contents: PlaylistContent[];
   })[];
+  playlistId: string;
   seriesId: string;
 }
 
 export function AddWatchlistModal({
   playlists,
+  playlistId,
   seriesId,
 }: AddWatchlistModalProps) {
   const { isOpen, onClose } = useWatchlistModal();
@@ -140,20 +140,40 @@ export function AddWatchlistModal({
       });
 
       toast.success("Playlist has been created!");
-      form.reset()
-      router.refresh()
-      setIsCreatePlaylist((curr)=> !curr)
+      form.reset();
+      router.refresh();
+      setIsCreatePlaylist((curr) => !curr);
     } catch (error) {
       console.log(error);
-      toast.error("Failed to create playlist")
+      toast.error("Failed to create playlist");
     }
   };
 
-  const handleAddToPlaylist = () => {
-    if (selectedPlaylist) {
-      // TODO: Implement adding series to playlist
-      console.log(`Adding series ${seriesId} to playlist ${selectedPlaylist}`);
-      onClose();
+  const {user} = useAuth();
+
+  const selectedPlaylistName = playlists.find(
+    (p) => p.id === selectedPlaylist
+  )?.name;
+
+  const handleAddToMyList = async () => {
+    if (!user) {
+      toast.error("Please sign in to add to your list");
+      return;
+    }
+
+    try {
+      if (selectedPlaylist !== playlistId) {
+        await axios.patch(`/api/playlists/${playlistId}`, {
+          seriesId,
+        });
+
+        toast.success(`Added to ${selectedPlaylistName}`);
+        router.refresh();
+        onClose();
+      } else {
+      }
+    } catch (error) {
+      console.error("Error adding to list:", error);
     }
   };
 
@@ -240,18 +260,14 @@ export function AddWatchlistModal({
                       Close
                     </Button>
                     <Button disabled={isSubmitting || !isValid}>
-                      {isSubmitting ? (
-                        <p>Creating</p>
-                      ) : (
-                        <p>Create</p>
-                      )}
+                      {isSubmitting ? <p>Creating</p> : <p>Create</p>}
                     </Button>
                   </div>
                 ) : (
                   <div className="flex justify-end space-x-2 pt-4">
                     <Button
                       type="button"
-                      onClick={handleAddToPlaylist}
+                      onClick={handleAddToMyList}
                       disabled={!selectedPlaylist}
                     >
                       Add to Playlist
@@ -307,7 +323,7 @@ export function AddWatchlistModal({
               </Button>
             </DrawerClose>
             <Button
-              onClick={handleAddToPlaylist}
+              onClick={handleAddToMyList}
               disabled={!selectedPlaylist}
               className="flex-1"
             >

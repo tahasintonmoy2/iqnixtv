@@ -1,21 +1,41 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
-import { currentUser } from "@/lib/auth";
-import { checkSubscription } from "@/lib/subscriptions";
+import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { UserProfileButton } from "./auth/user-button";
 import Logo from "./logo";
 import { NavRoutes } from "./nav-routes";
 import { SearchButton } from "./search-button";
-import SubscriptionButton from "./subscription-button";
+import { SubscriptionButtonClient } from "./subscription-button-client";
 
-export const Navbar = async () => {
-  const user = await currentUser();
-  const isPro = await checkSubscription();
+export const Navbar = () => {
+  const { user } = useAuth();
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 0);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  console.log("User id:", user?.id);
 
   return (
     <>
-      <nav className="fixed z-50 h-16 navbar-width flex items-center px-4 justify-between backdrop-blur-lg bg-black/5 dark:bg-black/20">
+      <nav
+        className={cn(
+          "fixed z-50 h-16 navbar-width flex items-center px-4 justify-between",
+          isScrolled
+            ? "bg-background/70 backdrop-blur-xl border-b border-border"
+            : "bg-transparent"
+        )}
+      >
         <div className="flex">
           <Logo href="/" />
           <NavRoutes />
@@ -24,7 +44,7 @@ export const Navbar = async () => {
           <div className="flex items-center gap-x-4">
             <SearchButton />
             <div className="lg:block hidden">
-              <SubscriptionButton isPro={isPro} />
+              <SubscriptionButtonClient />
             </div>
             {user?.id ? (
               <UserProfileButton />
