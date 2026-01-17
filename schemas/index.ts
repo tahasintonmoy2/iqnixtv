@@ -52,7 +52,9 @@ export const SignUpSchema = z.object({
   lastName: z.string().min(2, {
     message: "Last name must be required",
   }),
-  email: z.email(),
+  email: z.email({
+    error: "Email must be a valid email address",
+  }),
   password: z
     .string()
     .min(8, { message: "Password must be at least 8 characters" })

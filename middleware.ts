@@ -1,58 +1,45 @@
-import authConfig from "@/auth.config";
-import {
-  DEFALUT_LOGIN_REDIRECT,
-  apiAuthPrefix,
-  authRoutes,
-  publicRoutes,
-} from "@/routes";
-import NextAuth from "next-auth";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
-const { auth } = NextAuth(authConfig);
+export async function middleware(request: NextRequest) {
+  const token = request.cookies.get("accessToken")?.value;
+  const pathname = request.nextUrl.pathname;
+  const authPaths = ["/auth/login", "/auth/sign-up"];
+  const isAuthPath = authPaths.some(path => pathname.startsWith(path));
 
-export default auth((req) => {
-  const { nextUrl } = req;
-  const isLoggedIn = !!req.auth;
-
-  const isApiAuthRoute = nextUrl.pathname.startsWith(apiAuthPrefix);
-  const isPublicRoute = publicRoutes.includes(nextUrl.pathname);
-  const isAuthRoute = authRoutes.includes(nextUrl.pathname);
-
-  // Allow anyone to access the /api/series route without login or sign up
-  if (nextUrl.pathname === "/api/series") {
-    return null;
+  // Block authenticated users from accessing auth routes
+  if (token && isAuthPath) {
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
-  if (isApiAuthRoute) {
-    return null;
+  // Redirect unauthenticated users to login (except for public routes)
+  if (
+    !token &&
+    pathname !== "/" &&
+    pathname !== "/auth/sign-in" &&
+    pathname !== "/auth/sign-up" &&
+    pathname !== "/studio"
+  ) {
+    return NextResponse.redirect(new URL("/auth/sign-in", request.url));
   }
 
-  if (isAuthRoute) {
-    if (isLoggedIn) {
-      return Response.redirect(new URL(DEFALUT_LOGIN_REDIRECT, nextUrl));
-    }
-    return null;
-  }
-
-  if (!isLoggedIn && !isPublicRoute) {
-    return Response.redirect(new URL("/auth/sign-in", nextUrl));
-  }
-
-  if (isPublicRoute) {
-    return null;
-  }
-
-  if (nextUrl.pathname === "/api/categories") {
-    return null;
-  }
-
-  return null;
-});
+  return NextResponse.next();
+}
 
 export const config = {
   matcher: [
-    "/studio",
-    "/studio/billing",
-    "/studio/cast",
-    "/studio/categories"
+    // Skip Next.js internals and all static files, unless found in search params
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // Always run for API routes
+    '/(api|trpc)(.*)',
   ],
 }
+
+// export const config = {
+//   matcher: [
+//     "/studio",
+//     "/studio/billing",
+//     "/studio/cast",
+//     "/studio/categories"
+//   ],
+// }

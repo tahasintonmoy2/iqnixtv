@@ -19,7 +19,6 @@ import { BannerDescriptionForm } from "./_components/banner-description-form";
 import { SeriesImageForm } from "./_components/banner-image-form";
 import { SeriesRegionForm } from "./_components/banner-region-form";
 import { ContentAction } from "./_components/content-action";
-import { ContentGenresForm } from "./_components/content-select-genre-form";
 import { SelectBannerTypeForm } from "./_components/select-banner-type-form";
 import { SelectSeriesForm } from "./_components/select-series-form";
 
@@ -33,9 +32,6 @@ const BannerIdPage = async ({ params }: BannerIdPageProps) => {
     where: {
       id: bannerId,
     },
-    include: {
-      genre: true,
-    },
   });
 
   const series = await db.series.findMany({
@@ -47,14 +43,8 @@ const BannerIdPage = async ({ params }: BannerIdPageProps) => {
     },
   });
 
-  const genre = await db.genre.findMany({
-    orderBy: {
-      createdAt: "asc",
-    },
-  });
-
   if (!banner?.id) {
-    throw new Error("Series not found");
+    throw new Error("Series banner not found");
   }
 
   const requiredFields = [
@@ -64,7 +54,6 @@ const BannerIdPage = async ({ params }: BannerIdPageProps) => {
     banner.type,
     banner.bannerImageUrl,
     banner.seriesId,
-    banner.genreId,
   ];
 
   const bannerTypeOptions = [
@@ -235,24 +224,6 @@ const BannerIdPage = async ({ params }: BannerIdPageProps) => {
                     <CardTitle>Schedule Summary</CardTitle>
                   </CardHeader>
                   <CardContent></CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="targeting" className="space-y-4">
-                <Card className="py-4">
-                  <CardHeader>
-                    <CardTitle>Content Categories</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ContentGenresForm
-                      initialData={banner}
-                      bannerId={bannerId}
-                      options={genre.map((genr) => ({
-                        name: genr.name,
-                        value: genr.id,
-                      }))}
-                    />
-                  </CardContent>
                 </Card>
               </TabsContent>
             </Tabs>

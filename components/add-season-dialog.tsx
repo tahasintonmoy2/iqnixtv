@@ -39,9 +39,9 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useCreateSeason } from "@/hooks/use-create-season";
-import { Series } from "@/lib/generated/prisma";
+import { axiosClient } from "@/lib/axios-client";
 import { cn } from "@/lib/utils";
-import axios from "axios";
+import { Series } from "@/types";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -86,7 +86,7 @@ export function AddSeasonDialog({ series, seriesId }: AddSeasonDialogProps) {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       setIsLoading(true);
-      await axios.post(`/api/series/${series[0].id}/season`, values);
+      await axiosClient.post(`/series/${series[0].id}/season`, values);
       onClose();
       toast.success("Season has been created!");
       router.refresh();
@@ -253,28 +253,8 @@ export function AddSeasonDialog({ series, seriesId }: AddSeasonDialogProps) {
                     </FormItem>
                   )}
                 />
-                <div className="space-y-2">
-                  <div className="flex items-center gap-4">
-                    <FormField
-                      control={form.control}
-                      name="thumbnailImageUrl"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Thumbnail image</FormLabel>
-                          <FormControl>
-                            <FileUploadButton
-                              endPoint="videoImage"
-                              onChange={(url) => field.onChange(url)}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
 
-                <div className="space-y-2">
+                {/* <div className="space-y-2">
                   <FormField
                     control={form.control}
                     name="trailerVideoUrl"
@@ -291,7 +271,7 @@ export function AddSeasonDialog({ series, seriesId }: AddSeasonDialogProps) {
                       </FormItem>
                     )}
                   />
-                </div>
+                </div> */}
                 <FormField
                   control={form.control}
                   name="isPublished"

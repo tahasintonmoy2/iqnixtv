@@ -1,8 +1,7 @@
 "use client";
 import { zodResolver } from "@hookform/resolvers/zod";
-import axios from "axios";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
@@ -21,14 +20,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Episode } from "@/lib/generated/prisma";
+import { axiosClient } from "@/lib/axios-client";
 import { getError } from "@/lib/get-error-message";
 import { cn } from "@/lib/utils";
+import { Episode } from "@/types";
 import { PencilIcon, X } from "lucide-react";
 import { toast } from "sonner";
 
 interface CategoryFormPops {
-  initialData: Episode;
   seasonId: string;
   episodeId: string;
   seriesId: string;
@@ -40,14 +39,25 @@ const formSchema = z.object({
 });
 
 export const SelectSeasonForm = ({
-  initialData,
   seasonId,
   seriesId,
   episodeId,
   options,
 }: CategoryFormPops) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [initialData, setInitialData] = useState<Episode | null>();
   const router = useRouter();
+
+  useEffect(()=> {
+    const fetchEpisode = async () => {
+      const response = await axiosClient.get("/series/seasons");
+
+      setInitialData(response.data);
+    }
+
+    fetchEpisode()
+  }, [])
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -61,11 +71,11 @@ export const SelectSeasonForm = ({
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      await axios.patch(
-        `/api/series/${seriesId}/season/${seasonId}/episode/${episodeId}`,
+      await axiosClient.patch(
+        `/series/${seriesId}/season/${seasonId}/episode/${episodeId}`,
         values
       );
-      toast.success("Episode updated");
+      toast.success("Season of series has been updated");
       toggleEdit();
       router.refresh();
     } catch (error) {
@@ -74,7 +84,7 @@ export const SelectSeasonForm = ({
   };
 
   const selectedOption = options.find(
-    (option) => option.value === initialData.seasonId
+    (option) => option.value === initialData?.seasonId
   );
 
   return (
@@ -99,7 +109,7 @@ export const SelectSeasonForm = ({
         <p
           className={cn(
             "text-sm mt-2",
-            !initialData.seasonId && "text-slate-400 dark:text-muted-foreground"
+            !initialData?.seasonId && "text-slate-400 dark:text-muted-foreground"
           )}
         >
           {selectedOption 

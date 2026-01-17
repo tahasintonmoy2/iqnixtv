@@ -1,6 +1,5 @@
 "use client";
 
-import type React from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,7 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import {
   Form,
   FormControl,
@@ -20,14 +18,15 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { useState } from "react";
+import { Input } from "@/components/ui/input";
 import { useCreateBannerSeries } from "@/hooks/use-create-series-banner";
-import * as z from "zod";
-import { useForm } from "react-hook-form";
+import { axiosClient } from "@/lib/axios-client";
 import { zodResolver } from "@hookform/resolvers/zod";
-import axios from "axios";
-import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import * as z from "zod";
 
 const formSchema = z.object({
   name: z.string().min(3, {
@@ -53,7 +52,7 @@ export function AddBannerDialog() {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       setIsLoading(true);
-      const response = await axios.post(`/api/series/banner`, values);
+      const response = await axiosClient.post(`/series/banners`, values);
       router.push(`/studio/banners/${response.data.id}`);
       toast.success("Series banner has been created!");
       onClose();

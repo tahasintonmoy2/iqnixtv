@@ -30,7 +30,7 @@ export const Navbar = () => {
     <>
       <nav
         className={cn(
-          "fixed z-50 h-16 navbar-width flex items-center px-4 justify-between",
+          "fixed z-50 h-18 navbar-width flex items-center px-4 justify-between",
           isScrolled
             ? "bg-background/70 backdrop-blur-xl border-b border-border"
             : "bg-transparent"

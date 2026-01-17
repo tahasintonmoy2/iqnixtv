@@ -35,7 +35,7 @@ export const SignUpForm = () => {
   const [isShow, setIsShow] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isShowOTP, setIsShowOTP] = useState(false);
-  const { signup, loading } = useAuth();
+  const { signup, loading, authError } = useAuth();
 
   const form = useForm<z.infer<typeof SignUpSchema>>({
     resolver: zodResolver(SignUpSchema),
@@ -63,11 +63,8 @@ export const SignUpForm = () => {
       );
     } catch (error) {
       console.log(error);
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Something went wrong. Please try again."
-      );
+      console.log(authError);
+      setError(authError || "Something went wrong! Please try again.");
     }
   };
 
@@ -141,7 +138,7 @@ export const SignUpForm = () => {
                           {...field}
                         />
                       </FormControl>
-                      <FormMessage className="font-semibold text-red-600" />
+                      <FormMessage className="text-red-600" />
                     </FormItem>
                   )}
                 />
@@ -165,7 +162,7 @@ export const SignUpForm = () => {
                           {...field}
                         />
                       </FormControl>
-                      <FormMessage className="font-semibold text-red-600" />
+                      <FormMessage className="text-red-600" />
                     </FormItem>
                   )}
                 />
@@ -190,7 +187,7 @@ export const SignUpForm = () => {
                         {...field}
                       />
                     </FormControl>
-                    <FormMessage className="font-semibold text-red-600" />
+                    <FormMessage className="text-red-600" />
                   </FormItem>
                 )}
               />
@@ -226,7 +223,7 @@ export const SignUpForm = () => {
                         </button>
                       </div>
                     </FormControl>
-                    <FormMessage className="text-red-600" />
+                    <FormMessage className="text-red-600 w-full" />
                   </FormItem>
                 )}
               />

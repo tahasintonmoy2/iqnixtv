@@ -2,17 +2,15 @@
 
 import { cookies } from "next/headers";
 
-const TOKEN_KEY = "accessToken";
-
-export async function getToken(): Promise<string | null> {
+export async function getToken(tokenKey: string): Promise<string | null> {
   const cookieStore = await cookies();
-  const token = cookieStore.get(TOKEN_KEY);
+  const token = cookieStore.get(tokenKey);
   return token?.value ?? null;
 }
 
-export async function setToken(token: string): Promise<void> {
+export async function setToken(token: string, tokenKey: string): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.set(TOKEN_KEY, token, {
+  cookieStore.set(tokenKey, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -21,7 +19,7 @@ export async function setToken(token: string): Promise<void> {
   });
 }
 
-export async function removeToken(): Promise<void> {
+export async function removeToken(tokenKey: string): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.delete(TOKEN_KEY);
+  cookieStore.delete(tokenKey);
 }

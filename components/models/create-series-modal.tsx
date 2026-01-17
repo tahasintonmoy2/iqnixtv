@@ -1,6 +1,5 @@
 "use client";
 import { zodResolver } from "@hookform/resolvers/zod";
-import axios from "axios";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -22,6 +21,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useCreateSeries } from "@/hooks/use-create-series";
+import { axiosClient } from "@/lib/axios-client";
 import { toast } from "sonner";
 
 const formSchema = z.object({
@@ -45,7 +45,7 @@ export const CreateNewSeries = () => {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      const response = await axios.post(`/api/series`, values);
+      const response = await axiosClient.post(`/series`, values);
       router.push(
         `/studio/series/${response.data.id}/seasons`
       );

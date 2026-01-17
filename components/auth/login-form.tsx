@@ -61,7 +61,7 @@ export const LoginForm = () => {
     try {
       await login(values.email, values.password);
       form.reset();
-      setSuccess("Logged in successfully!");
+      setSuccess("Logged in successfully. Redirecting to homepage...");
     } catch (err) {
       console.log(err);
       setError(authError || "Something went wrong. Please try again.");

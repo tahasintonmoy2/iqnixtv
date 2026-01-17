@@ -31,7 +31,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
-import { Season } from "@/lib/generated/prisma";
+import { Season } from "@/types";
 import { cn } from "@/lib/utils";
 import axios from "axios";
 import { useRouter } from "next/navigation";
@@ -40,6 +40,7 @@ import { toast } from "sonner";
 import { ScrollArea } from "./ui/scroll-area";
 import { Switch } from "./ui/switch";
 import { FileUploadButton } from "./file-upload-button";
+
 interface SeasonFormProps {
   initialData: Season;
   seriesId: string;

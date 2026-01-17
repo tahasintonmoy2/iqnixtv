@@ -1,5 +1,6 @@
 "use client";
 
+import { authRefreshToken } from "@/lib/auth-refresh-token";
 import { authStorage } from "@/lib/auth-token";
 import { api } from "@/lib/axios-client";
 import { User } from "@/types/auth";
@@ -23,7 +24,7 @@ interface AuthContextType {
     firstName: string,
     lastName: string
   ) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   onClearError: () => void;
 }
 
@@ -84,44 +85,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const login = async (email: string, password: string): Promise<void> => {
     setError(null);
     setLoading(true);
+    // Clear any existing authentication state before login
+    setUser(null);
 
     try {
-      // const response = await api.login(email, password);
-      // if (response) {
-      //   await authStorage.setToken(response.token);
-      //   setUser(response.user);
-
-      //   // If the API returned user data use it, otherwise fetch profile
-      //   if (response.user) {
-      //     // const profile = Array.isArray(response.user)
-      //     //   ? response.user.length
-      //     //     ? response.user[0]
-      //     //     : null
-      //     //   : response.user;
-      //     setUser(response.user);
-      //   } else {
-      //     await fetchAndSetUser(response.token);
-      //   }
-
-      //   router.push("/");
-      // }
-
-      // Clear any existing authentication state before login
-      setUser(null);
-
       const response = await api.login(email, password);
+      if (response) {
+        // persist both access and refresh tokens for axios interceptors
+        await Promise.all([
+          authStorage.setToken(response.accessToken),
+          authRefreshToken.setToken(response.accessToken, "accessToken"),
+          authRefreshToken.setToken(response.refreshToken, "refreshToken"),
+        ]);
+        setUser(response.user);
 
-      const userData: User = {
-        id: response?.user.id,
-        firstName: response?.user.firstName,
-        lastName: response?.user.lastName,
-        email: response?.user.email,
-        role: response?.user.role,
-        image: response?.user.image,
-        createdAt: response?.user.createdAt,
-      };
+        // If the API returned user data use it, otherwise fetch profile
+        if (response.user) {
+          // const profile = Array.isArray(response.user)
+          //   ? response.user.length
+          //     ? response.user[0]
+          //     : null
+          //   : response.user;
+          setUser(response.user);
+        } else {
+          await fetchAndSetUser(response.accessToken);
+        }
 
-      setUser(userData);
+        router.push("/");
+      }
     } catch (error) {
       console.log(error);
       setError("Login failed. Please check your credentials.");
@@ -142,8 +133,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     try {
       const response = await api.signup(email, password, firstName, lastName);
+
+      if (email !== response.user.email) {
+        // Handle case where email doesn't match
+        setError(`User already exists with this email ${email}`);
+      }
+
       if (response) {
-        await authStorage.setToken(response.token);
+        await Promise.all([
+          authStorage.setToken(response.accessToken),
+          authRefreshToken.setToken(response.accessToken, "accessToken"),
+          authRefreshToken.setToken(response.refreshToken, "refreshToken"),
+        ]);
 
         // If the API returned user data use it, otherwise fetch profile
         if (response.user) {
@@ -154,10 +155,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           //   : response.user;
           setUser(response.user);
         } else {
-          await fetchAndSetUser(response.token);
+          await fetchAndSetUser(response.accessToken);
         }
 
-        router.push("/");
+        router.push("/auth/sign-in");
       }
     } catch (error) {
       console.log(error);
@@ -168,14 +169,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const logout = () => {
-    const performLogout = async () => {
-      await authStorage.remove();
-    };
-    performLogout();
+  const logout = useCallback(async () => {
+    // remove all auth cookies so refresh flow cannot resurrect the session
+    await Promise.all([
+      authStorage.remove(),
+      authRefreshToken.remove("accessToken"),
+      authRefreshToken.remove("refreshToken"),
+    ]);
+
     setUser(null);
     router.refresh();
-  };
+  }, [router]);
 
   return (
     <AuthContext.Provider

@@ -1,6 +1,5 @@
 "use client";
 import { zodResolver } from "@hookform/resolvers/zod";
-import axios from "axios";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -15,9 +14,10 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { axiosClient } from "@/lib/axios-client";
+import { SeriesBanner } from "@/types";
 import { PencilIcon, X } from "lucide-react";
 import { toast } from "sonner";
-import {SeriesBanner} from "@/lib/generated/prisma";
 
 interface TitleFormPops {
   initialData: SeriesBanner,
@@ -32,6 +32,7 @@ const formSchema = z.object({
 
 export const SeriesBannerTitleForm = ({ initialData, bannerId }: TitleFormPops) => {
   const [isEditing, setIsEditing] = useState(false);
+  
   const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -47,7 +48,7 @@ export const SeriesBannerTitleForm = ({ initialData, bannerId }: TitleFormPops) 
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      await axios.patch(`/api/series/banner/${bannerId}`, values);
+      await axiosClient.patch(`/series/banner/${bannerId}`, values);
       toast.success("Series title updated!");
       toggleEdit();
       router.refresh();

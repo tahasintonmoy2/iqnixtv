@@ -22,7 +22,7 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
-      <div className="bg-muted relative hidden lg:block">
+      <div className="bg-muted relative hidden lg:block rounded-l-2xl overflow-hidden my-2">
         <Image
           src="/martin-martz-qzfu2K5Iz7I-unsplash.jpg"
           alt="Image"

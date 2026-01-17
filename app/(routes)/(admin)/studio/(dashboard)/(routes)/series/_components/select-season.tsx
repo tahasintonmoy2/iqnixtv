@@ -1,7 +1,7 @@
 "use client";
 
 import { Edit, Plus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AddSeasonDialog } from "@/components/add-season-dialog";
 import { ContentList } from "@/components/content-list";
@@ -14,30 +14,63 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useEpisode } from "@/hooks/use-episode";
-import { Episode, Season, Series } from "@/lib/generated/prisma";
+import { axiosClient } from "@/lib/axios-client";
+import { Episode, Season, Series } from "@/types";
 
 interface SeasonProps {
-  seasons: Season[];
-  episodes: Episode[];
-  series: Series[];
-  episodeId: string;
   seriesId: string;
 }
 
-export const SelectSeason = ({
-  seasons,
-  episodes,
-  episodeId,
-  seriesId,
-  series,
-}: SeasonProps) => {
+export const SelectSeason = ({ seriesId }: SeasonProps) => {
+  const [seasons, setSeason] = useState<Season[]>([]);
+  const [series, setSeries] = useState<Series[]>([]);
   const [selectedSeason, setSelectedSeason] = useState<string>(
     seasons[0]?.id || ""
   );
   const [isEditSeasonOpen, setIsEditSeasonOpen] = useState(false);
   const episode = useEpisode();
+  const [episodes, setInitialData] = useState<Episode[]>([]);
 
-  const seasonToEdit = seasons.find((season) => season.id === selectedSeason);
+  // useEffect(() => {
+  //   const fetchEpisode = async () => {
+  //     const response = await axiosClient.get(`/series/${seriesId}/episode`);
+
+  //     setInitialData(response.data);
+  //   };
+
+  //   fetchEpisode();
+  // }, []);
+
+  useEffect(() => {
+    const fetchSeason = async () => {
+      const response = await axiosClient.get(`/series/${seriesId}/season`, {
+        data: {
+          id: seriesId,
+        },
+      });
+
+      console.log("Season data", seasons);
+      console.log("Season data", seriesId);
+
+      setSeason(response.data);
+    };
+
+    fetchSeason();
+  }, []);
+
+  useEffect(() => {
+    const fetchSeries = async () => {
+      const response = await axiosClient.get("/series");
+
+      setSeries(response.data);
+    };
+
+    fetchSeries();
+  }, []);
+
+  const seasonToEdit = seasons.find(
+    (season) => season.id === selectedSeason
+  ) as Season;
 
   return (
     <DashboardShell>
@@ -63,17 +96,17 @@ export const SelectSeason = ({
             </Button>
           </div>
           <Separator className="my-4" />
-          <ScrollArea className="h-[32rem]">
+          <ScrollArea className="h-128">
             <ContentList
               seasonId={selectedSeason}
-              episodeId={episodeId}
+              episodeId={episodes[0]?.id}
               episodes={episodes}
             />
           </ScrollArea>
         </CardContent>
       </Card>
 
-      <AddSeasonDialog series={series} seriesId={series[0].id} />
+      <AddSeasonDialog series={series} seriesId={seriesId} />
       {seasonToEdit && ( // Only render if a season is selected for editing
         <EditSeasonDialog
           initialData={seasonToEdit}
@@ -82,7 +115,7 @@ export const SelectSeason = ({
           onOpenChange={setIsEditSeasonOpen}
         />
       )}
-      <CreateNewEpisode seasonId={selectedSeason} seriesId={series[0].id} />
+      <CreateNewEpisode seasonId={selectedSeason} seriesId={series[0]?.id} />
     </DashboardShell>
   );
 };

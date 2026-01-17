@@ -16,7 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Season } from "@/lib/generated/prisma";
+import { Season } from "@/types";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
@@ -34,12 +34,12 @@ export function SeasonSelector({
   seriesId,
 }: SeasonSelectorProps) {
   const [open, setOpen] = useState(false);
-  
+
   // Filter seasons by seriesId if provided
-  const filteredSeasons = seriesId 
-    ? seasons.filter(season => season.seriesId === seriesId)
+  const filteredSeasons = seriesId
+    ? seasons.filter((season) => season.seriesId === seriesId)
     : seasons;
-    
+
   const selectedSeasonN = filteredSeasons.find(
     (season) => season.id === selectedSeason
   );
@@ -47,15 +47,27 @@ export function SeasonSelector({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-[200px] justify-between"
-        >
-          {selectedSeasonN?.name} {selectedSeasonN?.seasonNumber}
-          <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
+        {seasons.length === 0 ? (
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-[200px] justify-between text-muted-foreground"
+          >
+            <h1 className="text-muted-foreground">No seasons</h1>
+            <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-[200px] justify-between"
+          >
+            {selectedSeasonN?.name} {selectedSeasonN?.seasonNumber}
+            <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-[200px] p-0">
         <Command>

@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import { Episode } from "@/lib/generated/prisma";
+import { Episode } from "@/types";
 import { format } from "date-fns";
 import Link from "next/link";
 
